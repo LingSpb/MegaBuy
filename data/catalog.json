@@ -1,0 +1,313 @@
+{
+  "categories": [
+    {
+      "id": "cat_meat",
+      "name": "Meat & Poultry",
+      "description": "Fresh and frozen meat, poultry products",
+      "created_at": "2026-03-19T08:00:00.000Z"
+    },
+    {
+      "id": "cat_seafood",
+      "name": "Seafood",
+      "description": "Fresh and frozen seafood products",
+      "created_at": "2026-03-19T08:00:00.000Z"
+    },
+    {
+      "id": "cat_rice",
+      "name": "Rice & Grains",
+      "description": "Rice, sticky rice and grain products",
+      "created_at": "2026-03-19T08:00:00.000Z"
+    },
+    {
+      "id": "cat_noodles",
+      "name": "Noodles & Pasta",
+      "description": "Dried and fresh noodles",
+      "created_at": "2026-03-19T08:00:00.000Z"
+    },
+    {
+      "id": "cat_sauce",
+      "name": "Sauces & Condiments",
+      "description": "Fish sauce, oyster sauce, seasoning",
+      "created_at": "2026-03-19T08:00:00.000Z"
+    },
+    {
+      "id": "cat_snacks",
+      "name": "Snacks",
+      "description": "Chips, crackers and snack items",
+      "created_at": "2026-03-19T08:00:00.000Z"
+    },
+    {
+      "id": "cat_vegetables",
+      "name": "Vegetables & Pickled",
+      "description": "Fresh vegetables and pickled products",
+      "created_at": "2026-03-19T08:00:00.000Z"
+    },
+    {
+      "id": "cat_drinks",
+      "name": "Drinks & Beverages",
+      "description": "Water, coconut drinks and beverages",
+      "created_at": "2026-03-19T08:00:00.000Z"
+    },
+    {
+      "id": "cat_frozen",
+      "name": "Frozen Foods",
+      "description": "Frozen meats, vegetables and ready meals",
+      "created_at": "2026-03-19T08:00:00.000Z"
+    },
+    {
+      "id": "cat_drygoods",
+      "name": "Dry Goods",
+      "description": "Peanuts, seaweed, dried ingredients",
+      "created_at": "2026-03-19T08:00:00.000Z"
+    }
+  ],
+  "products": [
+    {
+      "id": "prod_001",
+      "name": "Whole Duck",
+      "category_id": "cat_meat",
+      "description": "Sold per piece",
+      "selling_type": "unit",
+      "unit_label": "piece",
+      "price": 163,
+      "package_quantity": 1,
+      "created_at": "2026-03-19T08:00:00.000Z"
+    },
+    {
+      "id": "prod_002",
+      "name": "Squid",
+      "category_id": "cat_seafood",
+      "description": "115.36 kr/kg. Sold by carton (10 kg per carton)",
+      "selling_type": "package",
+      "unit_label": "kg",
+      "unit_price": 115.36,
+      "price": 1153.6,
+      "package_quantity": 10,
+      "package_unit": "kg",
+      "created_at": "2026-03-19T08:00:00.000Z"
+    },
+    {
+      "id": "prod_003",
+      "name": "ST25 Rice 18kg",
+      "category_id": "cat_rice",
+      "description": "Premium ST25 rice, 18 kg bag",
+      "selling_type": "unit",
+      "unit_label": "bag",
+      "price": 358,
+      "package_quantity": 1,
+      "created_at": "2026-03-19T08:00:00.000Z"
+    },
+    {
+      "id": "prod_004",
+      "name": "Sushi Rice 20kg",
+      "category_id": "cat_rice",
+      "description": "Sushi rice, 20 kg bag",
+      "selling_type": "unit",
+      "unit_label": "bag",
+      "price": 487.2,
+      "package_quantity": 1,
+      "created_at": "2026-03-19T08:00:00.000Z"
+    },
+    {
+      "id": "prod_005",
+      "name": "Fish Sauce 500ml",
+      "category_id": "cat_sauce",
+      "description": "38 kr/bottle. Sold by carton (12 bottles per carton)",
+      "selling_type": "package",
+      "unit_label": "bottle",
+      "unit_price": 38,
+      "price": 456,
+      "package_quantity": 12,
+      "package_unit": "bottles",
+      "created_at": "2026-03-19T08:00:00.000Z"
+    },
+    {
+      "id": "prod_006",
+      "name": "Oyster Sauce",
+      "category_id": "cat_sauce",
+      "description": "29 kr/bottle. Sold by carton (12 bottles per carton)",
+      "selling_type": "package",
+      "unit_label": "bottle",
+      "unit_price": 29,
+      "price": 348,
+      "package_quantity": 12,
+      "package_unit": "bottles",
+      "created_at": "2026-03-19T08:00:00.000Z"
+    },
+    {
+      "id": "prod_007",
+      "name": "Duck Fillet",
+      "category_id": "cat_meat",
+      "description": "76 kr/pack. Sold by carton (12 packs per carton)",
+      "selling_type": "package",
+      "unit_label": "pack",
+      "unit_price": 76,
+      "price": 912,
+      "package_quantity": 12,
+      "package_unit": "packs",
+      "created_at": "2026-03-19T08:00:00.000Z"
+    },
+    {
+      "id": "prod_008",
+      "name": "Rice Noodles",
+      "category_id": "cat_noodles",
+      "description": "16.7 kr/pack. Sold by carton (30 packs per carton)",
+      "selling_type": "package",
+      "unit_label": "pack",
+      "unit_price": 16.7,
+      "price": 501,
+      "package_quantity": 30,
+      "package_unit": "packs",
+      "created_at": "2026-03-19T08:00:00.000Z"
+    },
+    {
+      "id": "prod_009",
+      "name": "Coconut Water",
+      "category_id": "cat_drinks",
+      "description": "21.2 kr/bottle. Sold by carton (12 bottles per carton)",
+      "selling_type": "package",
+      "unit_label": "bottle",
+      "unit_price": 21.2,
+      "price": 254.4,
+      "package_quantity": 12,
+      "package_unit": "bottles",
+      "created_at": "2026-03-19T08:00:00.000Z"
+    },
+    {
+      "id": "prod_010",
+      "name": "Lotus Pickled Cucumbers",
+      "category_id": "cat_vegetables",
+      "description": "11.8 kr/pack. Sold by carton (36 packs per carton)",
+      "selling_type": "package",
+      "unit_label": "pack",
+      "unit_price": 11.8,
+      "price": 424.8,
+      "package_quantity": 36,
+      "package_unit": "packs",
+      "created_at": "2026-03-19T08:00:00.000Z"
+    },
+    {
+      "id": "prod_011",
+      "name": "Magi Mild Flavor",
+      "category_id": "cat_sauce",
+      "description": "21.3 kr/bottle. Sold by carton (12 bottles per carton)",
+      "selling_type": "package",
+      "unit_label": "bottle",
+      "unit_price": 21.3,
+      "price": 255.6,
+      "package_quantity": 12,
+      "package_unit": "bottles",
+      "created_at": "2026-03-19T08:00:00.000Z"
+    },
+    {
+      "id": "prod_012",
+      "name": "Corn with Husk",
+      "category_id": "cat_vegetables",
+      "description": "39.1 kr/pack. Sold by carton (10 packs per carton)",
+      "selling_type": "package",
+      "unit_label": "pack",
+      "unit_price": 39.1,
+      "price": 391,
+      "package_quantity": 10,
+      "package_unit": "packs",
+      "created_at": "2026-03-19T08:00:00.000Z"
+    },
+    {
+      "id": "prod_013",
+      "name": "Hanami Chips",
+      "category_id": "cat_snacks",
+      "description": "16 kr/pack. Sold by carton (24 packs per carton)",
+      "selling_type": "package",
+      "unit_label": "pack",
+      "unit_price": 16,
+      "price": 384,
+      "package_quantity": 24,
+      "package_unit": "packs",
+      "created_at": "2026-03-19T08:00:00.000Z"
+    },
+    {
+      "id": "prod_014",
+      "name": "Frozen Beef Shank",
+      "category_id": "cat_frozen",
+      "description": "112 kr/kg. Sold by carton (10 kg per carton)",
+      "selling_type": "package",
+      "unit_label": "kg",
+      "unit_price": 112,
+      "price": 1120,
+      "package_quantity": 10,
+      "package_unit": "kg",
+      "created_at": "2026-03-19T08:00:00.000Z"
+    },
+    {
+      "id": "prod_015",
+      "name": "Old Chicken 1.8kg",
+      "category_id": "cat_meat",
+      "description": "74 kr/chicken. Sold by carton (8 chickens, 14.4 kg per carton)",
+      "selling_type": "package",
+      "unit_label": "chicken",
+      "unit_price": 74,
+      "price": 592,
+      "package_quantity": 8,
+      "package_unit": "chickens",
+      "created_at": "2026-03-19T08:00:00.000Z"
+    },
+    {
+      "id": "prod_016",
+      "name": "Thai Hot Pot Noodles",
+      "category_id": "cat_noodles",
+      "description": "Sold by carton (price per carton)",
+      "selling_type": "package",
+      "unit_label": "carton",
+      "price": 140,
+      "package_quantity": 1,
+      "package_unit": "carton",
+      "created_at": "2026-03-19T08:00:00.000Z"
+    },
+    {
+      "id": "prod_017",
+      "name": "Pink Peanuts",
+      "category_id": "cat_drygoods",
+      "description": "Sold per 500g bag",
+      "selling_type": "unit",
+      "unit_label": "bag",
+      "price": 38,
+      "package_quantity": 1,
+      "created_at": "2026-03-19T08:00:00.000Z"
+    },
+    {
+      "id": "prod_018",
+      "name": "Mixed Seaweed",
+      "category_id": "cat_drygoods",
+      "description": "32 kr/pack. Sold by carton (20 packs per carton)",
+      "selling_type": "package",
+      "unit_label": "pack",
+      "unit_price": 32,
+      "price": 640,
+      "package_quantity": 20,
+      "package_unit": "packs",
+      "created_at": "2026-03-19T08:00:00.000Z"
+    },
+    {
+      "id": "prod_019",
+      "name": "Sticky Rice 5kg",
+      "category_id": "cat_rice",
+      "description": "Sold per 5 kg bag",
+      "selling_type": "unit",
+      "unit_label": "bag",
+      "price": 153,
+      "package_quantity": 1,
+      "created_at": "2026-03-19T08:00:00.000Z"
+    },
+    {
+      "id": "prod_020",
+      "name": "Frozen Young Coconut",
+      "category_id": "cat_frozen",
+      "description": "Sold per bag",
+      "selling_type": "unit",
+      "unit_label": "bag",
+      "price": 20,
+      "package_quantity": 1,
+      "created_at": "2026-03-19T08:00:00.000Z"
+    }
+  ]
+}

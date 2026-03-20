@@ -1,0 +1,333 @@
+[
+  {
+    "id": "ord_1",
+    "person_name": "Ms Huong Meo",
+    "order_date": "2026-03-19",
+    "state": "Draft",
+    "items": [
+      {
+        "product_id": "prod_009",
+        "product_name": "Coconut Water",
+        "quantity": 1,
+        "unit": "carton",
+        "unit_price": 254.4,
+        "line_total": 254.4
+      },
+      {
+        "product_id": "prod_010",
+        "product_name": "Lotus Pickled Cucumbers",
+        "quantity": 5,
+        "unit": "pack",
+        "unit_price": 11.8,
+        "line_total": 59
+      },
+      {
+        "product_id": "prod_006",
+        "product_name": "Oyster Sauce",
+        "quantity": 1,
+        "unit": "bottle",
+        "unit_price": 29,
+        "line_total": 29
+      },
+      {
+        "product_id": "prod_018",
+        "product_name": "Mixed Seaweed",
+        "quantity": 1,
+        "unit": "carton",
+        "unit_price": 640,
+        "line_total": 640
+      },
+      {
+        "product_id": "prod_008",
+        "product_name": "Rice Noodles",
+        "quantity": 20,
+        "unit": "pack",
+        "unit_price": 16.7,
+        "line_total": 334
+      }
+    ],
+    "total_amount": 1316.4,
+    "created_at": "2026-03-19T12:00:00.000Z"
+  },
+  {
+    "id": "ord_2",
+    "person_name": "Ms. Hanh",
+    "order_date": "2026-03-19",
+    "state": "Draft",
+    "items": [
+      {
+        "product_id": "prod_003",
+        "product_name": "ST25 Rice 18kg",
+        "quantity": 2,
+        "unit": "bag",
+        "unit_price": 358,
+        "line_total": 716
+      },
+      {
+        "product_id": "prod_016",
+        "product_name": "Thai Hot Pot Noodles",
+        "quantity": 1,
+        "unit": "carton",
+        "unit_price": 140,
+        "line_total": 140
+      },
+      {
+        "product_id": "prod_012",
+        "product_name": "Corn with Husk",
+        "quantity": 2,
+        "unit": "pack",
+        "unit_price": 39.1,
+        "line_total": 78.2
+      },
+      {
+        "product_id": "prod_009",
+        "product_name": "Coconut Water",
+        "quantity": 5,
+        "unit": "bottle",
+        "unit_price": 21.2,
+        "line_total": 106
+      },
+      {
+        "product_id": "prod_010",
+        "product_name": "Lotus Pickled Cucumbers",
+        "quantity": 5,
+        "unit": "pack",
+        "unit_price": 11.8,
+        "line_total": 59
+      },
+      {
+        "product_id": "prod_001",
+        "product_name": "Whole Duck",
+        "quantity": 1,
+        "unit": "piece",
+        "unit_price": 163,
+        "line_total": 163
+      },
+      {
+        "product_id": "prod_008",
+        "product_name": "Rice Noodles",
+        "quantity": 10,
+        "unit": "pack",
+        "unit_price": 16.7,
+        "line_total": 167
+      }
+    ],
+    "total_amount": 1429.2,
+    "created_at": "2026-03-19T12:00:00.000Z",
+    "updated_at": "2026-03-19T15:04:16.939Z"
+  },
+  {
+    "id": "ord_1773933029920",
+    "person_name": "Ly",
+    "order_date": "2026-03-19",
+    "state": "Draft",
+    "items": [
+      {
+        "product_id": "prod_020",
+        "product_name": "Frozen Young Coconut",
+        "quantity": 2,
+        "unit": "bag",
+        "unit_price": 20,
+        "line_total": 40
+      },
+      {
+        "product_id": "prod_015",
+        "product_name": "Old Chicken 1.8kg",
+        "quantity": 2,
+        "unit": "chicken",
+        "unit_price": 74,
+        "line_total": 148
+      },
+      {
+        "product_id": "prod_010",
+        "product_name": "Lotus Pickled Cucumbers",
+        "quantity": 26,
+        "unit": "packs",
+        "unit_price": 11.8,
+        "line_total": 306.8
+      }
+    ],
+    "total_amount": 494.8,
+    "created_at": "2026-03-19T15:10:29.920Z",
+    "updated_at": "2026-03-19T15:11:41.396Z"
+  },
+  {
+    "id": "ord_1773933341039",
+    "person_name": "Mega Buy Order",
+    "order_date": "2026-03-19",
+    "state": "Draft",
+    "order_type": "mega_buy",
+    "child_order_ids": [
+      "ord_1",
+      "ord_2",
+      "ord_1773933029920",
+      "ord_1773933395241"
+    ],
+    "source_order_ids": [
+      "ord_1",
+      "ord_2",
+      "ord_1773933029920",
+      "ord_1773933395241"
+    ],
+    "immutable_items": true,
+    "items": [
+      {
+        "product_id": "prod_009",
+        "product_name": "Coconut Water",
+        "quantity": 1,
+        "unit": "carton",
+        "unit_price": 254.4,
+        "line_total": 254.4
+      },
+      {
+        "product_id": "prod_009",
+        "product_name": "Coconut Water",
+        "quantity": 5,
+        "unit": "bottle",
+        "unit_price": 21.2,
+        "line_total": 106
+      },
+      {
+        "product_id": "prod_010",
+        "product_name": "Lotus Pickled Cucumbers",
+        "quantity": 1,
+        "unit": "carton",
+        "unit_price": 424.8,
+        "line_total": 424.8
+      },
+      {
+        "product_id": "prod_006",
+        "product_name": "Oyster Sauce",
+        "quantity": 1,
+        "unit": "bottle",
+        "unit_price": 29,
+        "line_total": 29
+      },
+      {
+        "product_id": "prod_018",
+        "product_name": "Mixed Seaweed",
+        "quantity": 1,
+        "unit": "carton",
+        "unit_price": 640,
+        "line_total": 640
+      },
+      {
+        "product_id": "prod_008",
+        "product_name": "Rice Noodles",
+        "quantity": 1,
+        "unit": "carton",
+        "unit_price": 501,
+        "line_total": 501
+      },
+      {
+        "product_id": "prod_003",
+        "product_name": "ST25 Rice 18kg",
+        "quantity": 2,
+        "unit": "bag",
+        "unit_price": 358,
+        "line_total": 716
+      },
+      {
+        "product_id": "prod_016",
+        "product_name": "Thai Hot Pot Noodles",
+        "quantity": 1,
+        "unit": "carton",
+        "unit_price": 140,
+        "line_total": 140
+      },
+      {
+        "product_id": "prod_012",
+        "product_name": "Corn with Husk",
+        "quantity": 2,
+        "unit": "pack",
+        "unit_price": 39.1,
+        "line_total": 78.2
+      },
+      {
+        "product_id": "prod_001",
+        "product_name": "Whole Duck",
+        "quantity": 1,
+        "unit": "piece",
+        "unit_price": 163,
+        "line_total": 163
+      },
+      {
+        "product_id": "prod_020",
+        "product_name": "Frozen Young Coconut",
+        "quantity": 2,
+        "unit": "bag",
+        "unit_price": 20,
+        "line_total": 40
+      },
+      {
+        "product_id": "prod_015",
+        "product_name": "Old Chicken 1.8kg",
+        "quantity": 2,
+        "unit": "chicken",
+        "unit_price": 74,
+        "line_total": 148
+      },
+      {
+        "product_id": "prod_005",
+        "product_name": "Fish Sauce 500ml",
+        "quantity": 1,
+        "unit": "carton",
+        "unit_price": 456,
+        "line_total": 456
+      },
+      {
+        "product_id": "prod_013",
+        "product_name": "Hanami Chips",
+        "quantity": 15,
+        "unit": "pack",
+        "unit_price": 16,
+        "line_total": 240
+      },
+      {
+        "product_id": "prod_019",
+        "product_name": "Sticky Rice 5kg",
+        "quantity": 1,
+        "unit": "bag",
+        "unit_price": 153,
+        "line_total": 153
+      }
+    ],
+    "total_amount": 4089.4,
+    "created_at": "2026-03-19T15:15:41.039Z",
+    "updated_at": "2026-03-19T15:16:41.310Z"
+  },
+  {
+    "id": "ord_1773933395241",
+    "person_name": "Ms Trang",
+    "order_date": "2026-03-19",
+    "state": "Draft",
+    "items": [
+      {
+        "product_id": "prod_005",
+        "product_name": "Fish Sauce 500ml",
+        "quantity": 1,
+        "unit": "carton",
+        "unit_price": 456,
+        "line_total": 456
+      },
+      {
+        "product_id": "prod_013",
+        "product_name": "Hanami Chips",
+        "quantity": 15,
+        "unit": "pack",
+        "unit_price": 16,
+        "line_total": 240
+      },
+      {
+        "product_id": "prod_019",
+        "product_name": "Sticky Rice 5kg",
+        "quantity": 1,
+        "unit": "bag",
+        "unit_price": 153,
+        "line_total": 153
+      }
+    ],
+    "total_amount": 849,
+    "created_at": "2026-03-19T15:16:35.241Z"
+  }
+]

@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MegaBuy - Product Management</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <nav class="navbar">
+      <h1>MegaBuy</h1>
+      <div class="nav-links">
+        <button class="nav-btn active" onclick="showTab(event, 'categories')">Categories</button>
+        <button class="nav-btn" onclick="showTab(event, 'products')">Products</button>
+        <button class="nav-btn" onclick="showTab(event, 'orders')">Orders</button>
+      </div>
+    </nav>
+
+    <!-- Categories Tab -->
+    <div id="categories-tab" class="tab active">
+      <div class="tab-header">
+        <h2>Product Categories</h2>
+        <button class="btn btn-primary" onclick="openCategoryModal()">+ Add Category</button>
+      </div>
+
+      <div class="search-box">
+        <input 
+          type="text" 
+          id="categorySearch" 
+          placeholder="Search categories..." 
+          onkeyup="filterCategories()"
+        >
+      </div>
+
+      <div id="categories-list" class="list-container">
+        <!-- Categories will be loaded here -->
+      </div>
+    </div>
+
+    <!-- Products Tab -->
+    <div id="products-tab" class="tab">
+      <div class="tab-header">
+        <h2>Products</h2>
+        <button class="btn btn-primary" onclick="openProductModal()">+ Add Product</button>
+      </div>
+
+      <div class="search-box">
+        <input 
+          type="text" 
+          id="productSearch" 
+          placeholder="Search products..." 
+          onkeyup="filterProducts()"
+        >
+      </div>
+
+      <div id="products-list" class="list-container">
+        <!-- Products will be loaded here -->
+      </div>
+    </div>
+
+    <!-- Orders Tab -->
+    <div id="orders-tab" class="tab">
+      <div class="tab-header">
+        <h2>Orders</h2>
+        <div class="orders-header-actions">
+          <button class="btn btn-secondary" onclick="addMegaBuyOrder()">+ Add Mega Buy Order</button>
+          <button class="btn btn-primary" onclick="openOrderModal()">+ Create Order</button>
+        </div>
+      </div>
+
+      <div class="search-box">
+        <input
+          type="text"
+          id="orderSearch"
+          placeholder="Search orders by person, state, id..."
+          onkeyup="filterOrders()"
+        >
+      </div>
+
+      <div class="orders-sections">
+        <section class="orders-section">
+          <h3 class="orders-section-title">Mega Buy Orders</h3>
+          <div id="mega-orders-list" class="list-container">
+            <!-- Mega Buy orders will be loaded here -->
+          </div>
+        </section>
+
+        <section class="orders-section">
+          <h3 class="orders-section-title">Normal Orders</h3>
+          <div id="normal-orders-list" class="list-container">
+            <!-- Normal orders will be loaded here -->
+          </div>
+        </section>
+      </div>
+
+      <!-- Archived Orders -->
+      <div id="archived-orders-section" class="archived-section" style="display:none">
+        <button class="archived-toggle" onclick="toggleArchivedOrders()">
+          <span class="archived-toggle-icon" id="archived-toggle-icon">▶</span>
+          <span>Archived Orders</span>
+          <span class="archived-count-badge" id="archived-count-badge">0</span>
+        </button>
+        <div id="archived-orders-list" class="list-container archived-list" style="display:none">
+          <!-- Archived (Locked/Closed) orders will be loaded here -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Category Modal -->
+  <div id="categoryModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="categoryModalTitle">Add New Category</h3>
+        <button class="close-btn" onclick="closeCategoryModal()">&times;</button>
+      </div>
+      <form onsubmit="saveCategoryHandler(event)">
+        <div class="form-group">
+          <label for="categoryName">Category Name *</label>
+          <input 
+            type="text" 
+            id="categoryName" 
+            placeholder="e.g., Staples, Beverages" 
+            required
+          >
+        </div>
+        <div class="form-group">
+          <label for="categoryDescription">Description</label>
+          <textarea 
+            id="categoryDescription" 
+            placeholder="Enter category description"
+            rows="3"
+          ></textarea>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeCategoryModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Category</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Product Modal -->
+  <div id="productModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="productModalTitle">Add New Product</h3>
+        <button class="close-btn" onclick="closeProductModal()">&times;</button>
+      </div>
+      <form onsubmit="saveProductHandler(event)">
+        <div class="form-group">
+          <label for="productName">Product Name *</label>
+          <input 
+            type="text" 
+            id="productName" 
+            placeholder="e.g., Rice ST25 18kg" 
+            required
+          >
+        </div>
+        <div class="form-group">
+          <label for="productCategory">Category *</label>
+          <select id="productCategory" required>
+            <option value="">Select a category</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="productDescription">Description</label>
+          <textarea 
+            id="productDescription" 
+            placeholder="Enter product description"
+            rows="2"
+          ></textarea>
+        </div>
+        <div class="form-group">
+          <label for="sellingType">Selling Type *</label>
+          <select id="sellingType" onchange="togglePackageQuantity()" required>
+            <option value="unit">By Unit</option>
+            <option value="package">By Package</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="productPrice">Price (kr) *</label>
+          <input 
+            type="number" 
+            id="productPrice" 
+            placeholder="e.g., 385" 
+            step="0.01"
+            required
+          >
+        </div>
+        <div class="form-group" id="packageQuantityGroup" style="display: none;">
+          <label for="packageQuantity">Package Quantity *</label>
+          <input 
+            type="number" 
+            id="packageQuantity" 
+            placeholder="e.g., 12" 
+            min="1"
+          >
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeProductModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Product</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Order Modal -->
+  <div id="orderModal" class="modal">
+    <div class="modal-content modal-content-wide">
+      <div class="modal-header">
+        <h3 id="orderModalTitle">Create New Order</h3>
+        <button class="close-btn" onclick="closeOrderModal()">&times;</button>
+      </div>
+      <form onsubmit="saveOrderHandler(event)">
+        <div class="order-form-grid">
+          <div class="form-group">
+            <label for="orderPersonName">Person Name *</label>
+            <input
+              type="text"
+              id="orderPersonName"
+              placeholder="Who creates this order?"
+              required
+            >
+          </div>
+          <div class="form-group">
+            <label for="orderDate">Order Date *</label>
+            <input
+              type="date"
+              id="orderDate"
+              required
+            >
+          </div>
+          <div class="form-group">
+            <label for="orderState">Order State *</label>
+            <input type="text" id="orderState" value="Draft" readonly>
+          </div>
+        </div>
+
+        <div class="order-items-header">
+          <h4>Order Items</h4>
+          <button type="button" class="btn btn-secondary" onclick="addOrderItemRow()">+ Add Item</button>
+        </div>
+
+        <div id="orderItems" class="order-items"></div>
+
+        <div class="order-total">
+          <strong>Total:</strong>
+          <span id="orderTotalValue">0 kr</span>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeOrderModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Order</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
