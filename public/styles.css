@@ -472,14 +472,38 @@ body {
 
 .order-item-row {
   display: grid;
-  grid-template-columns: 1.5fr 60px 80px 80px 70px;
-  gap: 8px;
+  grid-template-columns: 2fr 80px 100px 90px auto;
+  gap: 10px;
   align-items: center;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.order-item-row select,
+.order-item-row input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 2px solid #e0e0e0;
+  border-radius: 5px;
+  font-size: 13px;
+  font-family: inherit;
+  transition: border-color 0.3s;
+  background: white;
+}
+
+.order-item-row select:focus,
+.order-item-row input:focus {
+  outline: none;
+  border-color: #667eea;
 }
 
 .order-line-total {
   color: #2d3748;
   font-weight: 600;
+  font-size: 14px;
+  white-space: nowrap;
 }
 
 .order-total {
@@ -663,7 +687,16 @@ body {
   }
 
   .order-item-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .order-item-row select.order-product {
+    grid-column: 1 / -1;
+  }
+
+  .order-item-row .btn-danger {
+    justify-self: end;
   }
 
   .card {
