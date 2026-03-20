@@ -203,10 +203,10 @@ function displayProducts() {
         <div>
           <span class="price-badge">${product.price} kr</span>
           ${product.selling_type === 'package'
-            ? `<span class="selling-type-badge">Carton × ${product.package_quantity} ${product.package_unit || product.unit_label || 'units'}</span>`
-            : `<span class="selling-type-badge">Per ${product.unit_label || 'unit'}</span>`
+            ? `<span class="selling-type-badge">Carton × ${product.package_quantity} ${product.unit_label || product.package_unit || 'units'}</span>`
+            : `<span class="selling-type-badge">Per ${product.unit_label}</span>`
           }
-          ${product.unit_price ? `<span class="unit-price-badge">${product.unit_price} kr/${product.unit_label || 'unit'}</span>` : ''}
+          ${product.unit_price ? `<span class="unit-price-badge">${product.unit_price} kr/${product.unit_label}</span>` : ''}
         </div>
       </div>
       <div class="card-actions">
@@ -256,10 +256,10 @@ function filterProducts() {
         <div>
           <span class="price-badge">${product.price} kr</span>
           ${product.selling_type === 'package'
-            ? `<span class="selling-type-badge">Carton × ${product.package_quantity} ${product.package_unit || product.unit_label || 'units'}</span>`
-            : `<span class="selling-type-badge">Per ${product.unit_label || 'unit'}</span>`
+            ? `<span class="selling-type-badge">Carton × ${product.package_quantity} ${product.unit_label || product.package_unit || 'units'}</span>`
+            : `<span class="selling-type-badge">Per ${product.unit_label}</span>`
           }
-          ${product.unit_price ? `<span class="unit-price-badge">${product.unit_price} kr/${product.unit_label || 'unit'}</span>` : ''}
+          ${product.unit_price ? `<span class="unit-price-badge">${product.unit_price} kr/${product.unit_label}</span>` : ''}
         </div>
       </div>
       <div class="card-actions">
@@ -337,6 +337,7 @@ function openProductModal() {
   document.getElementById('productCategory').value = '';
   document.getElementById('productDescription').value = '';
   document.getElementById('sellingType').value = 'unit';
+  document.getElementById('unitLabel').value = '';
   document.getElementById('productPrice').value = '';
   document.getElementById('packageQuantity').value = '';
   togglePackageQuantity();
@@ -358,6 +359,7 @@ function editProduct(productId) {
   document.getElementById('productCategory').value = product.category_id;
   document.getElementById('productDescription').value = product.description;
   document.getElementById('sellingType').value = product.selling_type;
+  document.getElementById('unitLabel').value = product.unit_label || '';
   document.getElementById('productPrice').value = product.price;
   document.getElementById('packageQuantity').value = product.package_quantity;
   togglePackageQuantity();
@@ -371,6 +373,7 @@ async function saveProductHandler(event) {
   const category_id = document.getElementById('productCategory').value;
   const description = document.getElementById('productDescription').value;
   const selling_type = document.getElementById('sellingType').value;
+  const unit_label = document.getElementById('unitLabel').value.trim();
   const price = document.getElementById('productPrice').value;
   const package_quantity = document.getElementById('packageQuantity').value;
 
@@ -386,6 +389,7 @@ async function saveProductHandler(event) {
         category_id,
         description,
         selling_type,
+        unit_label,
         price: parseFloat(price),
         package_quantity: parseInt(package_quantity) || 1
       })
@@ -743,17 +747,23 @@ function closeOrderModal() {
 }
 
 function getProductUnits(product) {
-  const units = new Set(['carton']);
+  const units = new Set();
   const unitLabel = String(product.unit_label || '').toLowerCase();
   const packageUnit = String(product.package_unit || '').toLowerCase();
 
-  if (unitLabel) units.add(unitLabel);
-  if (packageUnit) {
-    // Check if packageUnit is different from unitLabel and not just a plural form
-    const isSingularForm = packageUnit.endsWith('s') && packageUnit.slice(0, -1) === unitLabel;
-    if (packageUnit !== unitLabel && !isSingularForm) {
-      units.add(packageUnit);
+  if (product.selling_type === 'package') {
+    // Package type: show carton and small unit
+    units.add('carton');
+    if (unitLabel) units.add(unitLabel);
+    if (packageUnit && packageUnit !== 'units' && packageUnit !== 'unit') {
+      const isSingularForm = packageUnit.endsWith('s') && packageUnit.slice(0, -1) === unitLabel;
+      if (packageUnit !== unitLabel && !isSingularForm) {
+        units.add(packageUnit);
+      }
     }
+  } else {
+    // Unit type: show only the small unit, no carton
+    units.add(unitLabel);
   }
 
   return Array.from(units);
@@ -865,8 +875,18 @@ function getUnitPrice(product, unit) {
 
   if (normalizedUnit === unitLabel || normalizedUnit === packageUnit || normalizedUnit === singularPackageUnit) {
     if (product.selling_type === 'package') {
-      return product.unit_price ? Number(product.unit_price) : null;
+      if (product.unit_price) {
+        return Number(product.unit_price);
+      }
+      // Calculate unit price from carton price / package quantity
+      const packageQuantity = Number(product.package_quantity) || 1;
+      return Number((Number(product.price) / packageQuantity).toFixed(2));
     }
+    return Number(product.price);
+  }
+
+  // Handle fallback "unit" for unit-type products without a unit_label
+  if (normalizedUnit === 'unit' && product.selling_type === 'unit') {
     return Number(product.price);
   }
 

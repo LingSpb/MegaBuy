@@ -16,17 +16,28 @@ function normalizeUnit(value) {
 }
 
 function buildProductUnits(product) {
-  const units = new Set(['carton']);
+  const units = new Set();
   const unitLabel = normalizeUnit(product.unit_label);
   const packageUnit = normalizeUnit(product.package_unit);
 
-  if (unitLabel) {
-    units.add(unitLabel);
-  }
-  if (packageUnit) {
-    units.add(packageUnit);
-    if (packageUnit.endsWith('s') && packageUnit.length > 1) {
-      units.add(packageUnit.slice(0, -1));
+  if (product.selling_type === 'package') {
+    // Package type: show carton and small unit
+    units.add('carton');
+    if (unitLabel) {
+      units.add(unitLabel);
+    }
+    if (packageUnit) {
+      units.add(packageUnit);
+      if (packageUnit.endsWith('s') && packageUnit.length > 1) {
+        units.add(packageUnit.slice(0, -1));
+      }
+    }
+  } else {
+    // Unit type: show only the small unit, no carton
+    if (unitLabel) {
+      units.add(unitLabel);
+    } else {
+      units.add('unit');
     }
   }
 
@@ -47,7 +58,12 @@ function getProductUnitPrice(product, unit) {
 
   if (normalizedUnit === normalizedUnitLabel || normalizedUnit === normalizedPackageUnit || normalizedUnit === singularPackageUnit) {
     if (product.selling_type === 'package') {
-      return product.unit_price ? Number(product.unit_price) : null;
+      if (product.unit_price) {
+        return Number(product.unit_price);
+      }
+      // Calculate unit price from carton price / package quantity
+      const packageQuantity = Number(product.package_quantity) || 1;
+      return Number((Number(product.price) / packageQuantity).toFixed(2));
     }
     return Number(product.price);
   }
@@ -262,7 +278,7 @@ async function fetchCategories() {
   const { data, error } = await supabase
     .from('categories')
     .select('*')
-    .order('created_at', { ascending: true });
+    .order('name', { ascending: true });
   if (error) throw error;
   return data;
 }
@@ -271,7 +287,7 @@ async function fetchProducts() {
   const { data, error } = await supabase
     .from('products')
     .select('*')
-    .order('created_at', { ascending: true });
+    .order('name', { ascending: true });
   if (error) throw error;
   return data;
 }
