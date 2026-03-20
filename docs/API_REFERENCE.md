@@ -85,11 +85,16 @@ Validation:
 ### `PUT /api/products/:id`
 Update product.
 
+Rules:
+- blocked if product is used in any order with `state = Locked`
+- allowed if product is in orders with `Draft`, `Delivered`, or `Closed` state, or not in any order
+
 ### `DELETE /api/products/:id`
 Delete product.
 
 Rules:
-- blocked if any order item references that product
+- blocked if product is used in any order with `state = Locked`
+- allowed if product is in orders with `Draft`, `Delivered`, or `Closed` state, or not in any order
 
 ---
 
@@ -128,14 +133,17 @@ Rules:
 Edit normal order.
 
 Rules:
-- only `Draft` orders can be edited
+- `Draft` orders can be edited
+- `Delivered` child orders linked from a Mega order (`locked_by_mega_order_id`) can also be edited
 - `mega_buy` orders cannot be edited manually
 
 ### `DELETE /api/orders/:id`
 Delete order.
 
 Rules:
-- only `Draft` orders can be deleted
+- `Draft` normal orders can be deleted
+- `Closed` Mega orders can be deleted; this also deletes all their child orders
+- `Locked` and `Delivered` orders cannot be deleted
 
 ---
 
@@ -170,9 +178,9 @@ Response includes:
 Recalculate Mega order quantities/items from all current draft normal orders.
 
 Rules:
-- only `Draft` Mega orders
-- server re-selects all orders where `state = Draft` and `order_type != mega_buy`
-- at least 2 draft normal orders are required
+- supports `Draft` and `Delivered` Mega orders
+- if Mega is `Draft`: server re-selects all orders where `state = Draft` and `order_type != mega_buy`, and requires at least 2
+- if Mega is `Delivered`: server recalculates from its own `child_order_ids` and requires all child orders to be `Delivered`
 
 ### `POST /api/orders/:id/place`
 Place Mega order and lock all child orders.
@@ -193,6 +201,53 @@ Response:
   "mega_order_id": "ord_mega",
   "child_order_ids": ["ord_a", "ord_b"],
   "state": "Locked"
+}
+```
+
+### `POST /api/orders/:id/deliver`
+Deliver Mega order and mark all child orders as Delivered.
+
+Rules:
+- only `Locked` Mega orders
+- child orders must exist and all must be `Locked`
+
+Effects:
+- Mega order: `state = Delivered`
+- Child orders: `state = Delivered`
+- Delivered child orders become editable, but still not deletable
+
+Response:
+
+```json
+{
+  "message": "Mega Buy order delivered successfully",
+  "mega_order_id": "ord_mega",
+  "child_order_ids": ["ord_a", "ord_b"],
+  "state": "Delivered"
+}
+```
+
+### `POST /api/orders/:id/close`
+Close Delivered Mega order and close all child orders.
+
+Rules:
+- only `Delivered` Mega orders
+- child orders must exist and all must be `Delivered`
+
+Effects:
+- Mega order: `state = Closed`
+- Child orders: `state = Closed`
+- child orders move to Archived section in UI and remain readonly (no Edit/Delete)
+- Closed Mega order shows Delete button in UI
+
+Response:
+
+```json
+{
+  "message": "Mega Buy order closed successfully",
+  "mega_order_id": "ord_mega",
+  "child_order_ids": ["ord_a", "ord_b"],
+  "state": "Closed"
 }
 ```
 

@@ -655,6 +655,34 @@ app.put('/api/products/:id', async (req, res) => {
       return res.status(404).json({ error: 'Product not found' });
     }
 
+    // Check if product is used in Locked orders
+    const { data: lockedItems } = await supabase
+      .from('order_items')
+      .select('id')
+      .eq('product_id', req.params.id);
+
+    if (lockedItems && lockedItems.length > 0) {
+      // Check if any of these items are in Locked orders
+      const { data: orders } = await supabase
+        .from('order_items')
+        .select('order_id')
+        .eq('product_id', req.params.id);
+
+      if (orders && orders.length > 0) {
+        const orderIds = orders.map(item => item.order_id);
+        const { data: lockedOrders } = await supabase
+          .from('orders')
+          .select('id')
+          .in('id', orderIds)
+          .eq('state', 'Locked')
+          .limit(1);
+
+        if (lockedOrders && lockedOrders.length > 0) {
+          return res.status(400).json({ error: 'Cannot edit product used in Locked orders' });
+        }
+      }
+    }
+
     // Check if category exists
     const { data: category } = await supabase
       .from('categories')
@@ -705,15 +733,24 @@ app.delete('/api/products/:id', async (req, res) => {
       return res.status(404).json({ error: 'Product not found' });
     }
 
-    // Check if product is used in orders
-    const { data: usedItems } = await supabase
+    // Check if product is used in Locked orders only
+    const { data: items } = await supabase
       .from('order_items')
-      .select('id')
-      .eq('product_id', req.params.id)
-      .limit(1);
+      .select('order_id')
+      .eq('product_id', req.params.id);
 
-    if (usedItems && usedItems.length > 0) {
-      return res.status(400).json({ error: 'Cannot delete product used in orders' });
+    if (items && items.length > 0) {
+      const orderIds = items.map(item => item.order_id);
+      const { data: lockedOrders } = await supabase
+        .from('orders')
+        .select('id')
+        .in('id', orderIds)
+        .eq('state', 'Locked')
+        .limit(1);
+
+      if (lockedOrders && lockedOrders.length > 0) {
+        return res.status(400).json({ error: 'Cannot delete product used in Locked orders' });
+      }
     }
 
     const { error } = await supabase
@@ -726,7 +763,7 @@ app.delete('/api/products/:id', async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: 'Failed to delete product: ' + error.message });
   }
-});
+})
 
 // ==================== ORDER ROUTES ====================
 
@@ -854,12 +891,13 @@ app.put('/api/orders/:id', async (req, res) => {
       return res.status(404).json({ error: 'Order not found' });
     }
 
-    if (order.state !== 'Draft') {
-      return res.status(400).json({ error: 'Only Draft orders can be edited' });
-    }
-
     if (order.order_type === 'mega_buy') {
       return res.status(400).json({ error: 'Mega Buy order product list and quantity are auto-generated and cannot be edited manually' });
+    }
+
+    const isEditableDeliveredChild = order.state === 'Delivered' && Boolean(order.locked_by_mega_order_id);
+    if (order.state !== 'Draft' && !isEditableDeliveredChild) {
+      return res.status(400).json({ error: 'Only Draft orders and Delivered child orders from a Mega Buy can be edited' });
     }
 
     if (!person_name || person_name.trim() === '') {
@@ -1013,21 +1051,40 @@ app.post('/api/orders/:id/recalculate', async (req, res) => {
       return res.status(400).json({ error: 'Only Mega Buy orders can be recalculated' });
     }
 
-    if (order.state !== 'Draft') {
-      return res.status(400).json({ error: 'Only Draft Mega Buy orders can be recalculated' });
+    if (!['Draft', 'Delivered'].includes(order.state)) {
+      return res.status(400).json({ error: 'Only Draft or Delivered Mega Buy orders can be recalculated' });
     }
 
     const allOrders = await fetchOrders();
     const products = await fetchProducts();
     const hydratedOrders = allOrders.map(o => hydrateOrderPricing(o, products));
 
-    const sourceOrders = hydratedOrders.filter(item => item.state === 'Draft' && item.order_type !== 'mega_buy');
+    let sourceOrders = [];
+    let childOrderIds = [];
 
-    if (sourceOrders.length < 2) {
-      return res.status(400).json({ error: 'Mega Buy recalculation requires at least 2 Draft normal orders' });
+    if (order.state === 'Draft') {
+      sourceOrders = hydratedOrders.filter(item => item.state === 'Draft' && item.order_type !== 'mega_buy');
+
+      if (sourceOrders.length < 2) {
+        return res.status(400).json({ error: 'Mega Buy recalculation requires at least 2 Draft normal orders' });
+      }
+
+      childOrderIds = sourceOrders.map(item => item.id);
+    } else {
+      childOrderIds = getMegaChildOrderIds(order);
+
+      if (childOrderIds.length === 0) {
+        return res.status(400).json({ error: 'Delivered Mega Buy order has no child orders to recalculate from' });
+      }
+
+      sourceOrders = hydratedOrders.filter(item =>
+        childOrderIds.includes(item.id) && item.order_type !== 'mega_buy' && item.state === 'Delivered'
+      );
+
+      if (sourceOrders.length !== childOrderIds.length) {
+        return res.status(400).json({ error: 'All child orders must be in Delivered state before recalculating a Delivered Mega Buy order' });
+      }
     }
-
-    const childOrderIds = sourceOrders.map(item => item.id);
 
     let aggregated;
     try {
@@ -1146,6 +1203,162 @@ app.post('/api/orders/:id/place', async (req, res) => {
   }
 });
 
+app.post('/api/orders/:id/deliver', async (req, res) => {
+  try {
+    const order = await fetchOrderById(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    if (order.order_type !== 'mega_buy') {
+      return res.status(400).json({ error: 'Only Mega Buy orders can be delivered with this action' });
+    }
+
+    if (order.state !== 'Locked') {
+      return res.status(400).json({ error: 'Only Locked Mega Buy orders can be delivered' });
+    }
+
+    const childOrderIds = getMegaChildOrderIds(order);
+
+    if (childOrderIds.length < 2) {
+      return res.status(400).json({ error: 'Mega Buy order has invalid source orders' });
+    }
+
+    const { data: sourceOrders, error: fetchError } = await supabase
+      .from('orders')
+      .select('*')
+      .in('id', childOrderIds);
+
+    if (fetchError) throw fetchError;
+
+    if (sourceOrders.length !== childOrderIds.length) {
+      return res.status(400).json({ error: 'One or more source orders no longer exist' });
+    }
+
+    if (sourceOrders.some(item => item.order_type === 'mega_buy')) {
+      return res.status(400).json({ error: 'Mega Buy order cannot have Mega Buy child orders' });
+    }
+
+    if (sourceOrders.some(item => item.state !== 'Locked')) {
+      return res.status(400).json({ error: 'All child orders must be Locked before delivering Mega Buy order' });
+    }
+
+    const now = new Date().toISOString();
+
+    for (const childOrder of sourceOrders) {
+      const { error: deliverError } = await supabase
+        .from('orders')
+        .update({
+          state: 'Delivered',
+          updated_at: now
+        })
+        .eq('id', childOrder.id);
+
+      if (deliverError) throw deliverError;
+    }
+
+    const { error: megaDeliverError } = await supabase
+      .from('orders')
+      .update({
+        state: 'Delivered',
+        child_order_ids: childOrderIds,
+        source_order_ids: childOrderIds,
+        updated_at: now
+      })
+      .eq('id', req.params.id);
+
+    if (megaDeliverError) throw megaDeliverError;
+
+    res.json({
+      message: 'Mega Buy order delivered successfully',
+      mega_order_id: order.id,
+      child_order_ids: childOrderIds,
+      state: 'Delivered'
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to deliver order: ' + error.message });
+  }
+});
+
+app.post('/api/orders/:id/close', async (req, res) => {
+  try {
+    const order = await fetchOrderById(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    if (order.order_type !== 'mega_buy') {
+      return res.status(400).json({ error: 'Only Mega Buy orders can be closed with this action' });
+    }
+
+    if (order.state !== 'Delivered') {
+      return res.status(400).json({ error: 'Only Delivered Mega Buy orders can be closed' });
+    }
+
+    const childOrderIds = getMegaChildOrderIds(order);
+
+    if (childOrderIds.length < 2) {
+      return res.status(400).json({ error: 'Mega Buy order has invalid source orders' });
+    }
+
+    const { data: sourceOrders, error: fetchError } = await supabase
+      .from('orders')
+      .select('*')
+      .in('id', childOrderIds);
+
+    if (fetchError) throw fetchError;
+
+    if (sourceOrders.length !== childOrderIds.length) {
+      return res.status(400).json({ error: 'One or more source orders no longer exist' });
+    }
+
+    if (sourceOrders.some(item => item.order_type === 'mega_buy')) {
+      return res.status(400).json({ error: 'Mega Buy order cannot have Mega Buy child orders' });
+    }
+
+    if (sourceOrders.some(item => item.state !== 'Delivered')) {
+      return res.status(400).json({ error: 'All child orders must be Delivered before closing Mega Buy order' });
+    }
+
+    const now = new Date().toISOString();
+
+    for (const childOrder of sourceOrders) {
+      const { error: closeError } = await supabase
+        .from('orders')
+        .update({
+          state: 'Closed',
+          updated_at: now
+        })
+        .eq('id', childOrder.id);
+
+      if (closeError) throw closeError;
+    }
+
+    const { error: megaCloseError } = await supabase
+      .from('orders')
+      .update({
+        state: 'Closed',
+        child_order_ids: childOrderIds,
+        source_order_ids: childOrderIds,
+        updated_at: now
+      })
+      .eq('id', req.params.id);
+
+    if (megaCloseError) throw megaCloseError;
+
+    res.json({
+      message: 'Mega Buy order closed successfully',
+      mega_order_id: order.id,
+      child_order_ids: childOrderIds,
+      state: 'Closed'
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to close order: ' + error.message });
+  }
+});
+
 app.delete('/api/orders/:id', async (req, res) => {
   try {
     const order = await fetchOrderById(req.params.id);
@@ -1154,8 +1367,53 @@ app.delete('/api/orders/:id', async (req, res) => {
       return res.status(404).json({ error: 'Order not found' });
     }
 
+    if (order.order_type === 'mega_buy' && order.state === 'Closed') {
+      const childOrderIds = getMegaChildOrderIds(order);
+
+      if (childOrderIds.length > 0) {
+        const { data: sourceOrders, error: fetchError } = await supabase
+          .from('orders')
+          .select('*')
+          .in('id', childOrderIds);
+
+        if (fetchError) throw fetchError;
+
+        if (sourceOrders.length !== childOrderIds.length) {
+          return res.status(400).json({ error: 'One or more child orders no longer exist' });
+        }
+
+        if (sourceOrders.some(item => item.order_type === 'mega_buy')) {
+          return res.status(400).json({ error: 'Mega Buy order cannot have Mega Buy child orders' });
+        }
+
+        if (sourceOrders.some(item => item.state !== 'Closed')) {
+          return res.status(400).json({ error: 'All child orders must be Closed before deleting a Closed Mega Buy order' });
+        }
+
+        const { error: childDeleteError } = await supabase
+          .from('orders')
+          .delete()
+          .in('id', childOrderIds);
+
+        if (childDeleteError) throw childDeleteError;
+      }
+
+      const { error: megaDeleteError } = await supabase
+        .from('orders')
+        .delete()
+        .eq('id', req.params.id);
+
+      if (megaDeleteError) throw megaDeleteError;
+
+      return res.json({
+        message: 'Closed Mega Buy order and child orders deleted successfully',
+        mega_order_id: order.id,
+        child_order_ids: childOrderIds
+      });
+    }
+
     if (order.state !== 'Draft') {
-      return res.status(400).json({ error: 'Only Draft orders can be deleted' });
+      return res.status(400).json({ error: 'Only Draft orders can be deleted, except Closed Mega Buy orders which delete with their child orders' });
     }
 
     // order_items deleted via ON DELETE CASCADE

@@ -389,6 +389,7 @@ function getOrderStateClass(state) {
   const normalized = String(state || '').toLowerCase();
   if (normalized === 'draft') return 'state-draft';
   if (normalized === 'locked') return 'state-locked';
+  if (normalized === 'delivered') return 'state-delivered';
   return 'state-closed';
 }
 
@@ -430,6 +431,9 @@ function renderOrderCard(order) {
   const childOrderIds = Array.isArray(order.child_order_ids) && order.child_order_ids.length > 0
     ? order.child_order_ids
     : (Array.isArray(order.source_order_ids) ? order.source_order_ids : []);
+  const canEditNormalOrder = order.order_type !== 'mega_buy' && (
+    order.state === 'Draft' || (order.state === 'Delivered' && Boolean(order.locked_by_mega_order_id))
+  );
 
   return `
     <div class="card order-card">
@@ -445,10 +449,12 @@ function renderOrderCard(order) {
       <div class="card-actions order-actions">
         <span class="state-badge ${getOrderStateClass(order.state)}">${escapeHtml(order.state)}</span>
         ${order.order_type === 'mega_buy' ? `<span class="selling-type-badge">Mega Buy</span>` : ''}
-        ${order.state === 'Draft' && order.order_type !== 'mega_buy' ? `<button class="btn btn-edit" onclick="editOrder('${order.id}')">Edit</button>` : ''}
-        ${order.state === 'Draft' ? `<button class="btn btn-danger" onclick="deleteOrder('${order.id}')">Delete</button>` : ''}
-        ${order.state === 'Draft' && order.order_type === 'mega_buy' ? `<button class="btn btn-dark" onclick="recalculateMegaBuyOrder('${order.id}')">Recalculate</button>` : ''}
+        ${canEditNormalOrder ? `<button class="btn btn-edit" onclick="editOrder('${order.id}')">Edit</button>` : ''}
+        ${(order.state === 'Draft' || (order.order_type === 'mega_buy' && order.state === 'Closed')) ? `<button class="btn btn-danger" onclick="deleteOrder('${order.id}')">Delete</button>` : ''}
+        ${(order.state === 'Draft' || order.state === 'Delivered') && order.order_type === 'mega_buy' ? `<button class="btn btn-dark" onclick="recalculateMegaBuyOrder('${order.id}')">Recalculate</button>` : ''}
         ${order.state === 'Draft' && order.order_type === 'mega_buy' ? `<button class="btn btn-primary" onclick="placeMegaBuyOrder('${order.id}')">Place Order</button>` : ''}
+        ${order.state === 'Locked' && order.order_type === 'mega_buy' ? `<button class="btn btn-primary" onclick="deliverMegaBuyOrder('${order.id}')">Deliver Order</button>` : ''}
+        ${order.state === 'Delivered' && order.order_type === 'mega_buy' ? `<button class="btn btn-primary" onclick="closeMegaBuyOrder('${order.id}')">Close Order</button>` : ''}
       </div>
     </div>
   `;
@@ -475,9 +481,9 @@ function displayOrders() {
   const megaContainer = document.getElementById('mega-orders-list');
   if (!normalContainer || !megaContainer) return;
 
-  const activeNormalOrders = allOrders.filter(o => o.order_type !== 'mega_buy' && o.state === 'Draft');
+  const activeNormalOrders = allOrders.filter(o => o.order_type !== 'mega_buy' && o.state !== 'Closed');
   const activeMegaOrders = allOrders.filter(o => o.order_type === 'mega_buy');
-  const archivedOrders = allOrders.filter(o => o.state !== 'Draft' && o.order_type !== 'mega_buy')
+  const archivedOrders = allOrders.filter(o => o.order_type !== 'mega_buy' && o.state === 'Closed')
     .sort((a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at));
 
   const sortedNormal = [...activeNormalOrders].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
@@ -485,7 +491,7 @@ function displayOrders() {
 
   normalContainer.innerHTML = sortedNormal.length > 0
     ? sortedNormal.map(renderOrderCard).join('')
-    : '<div class="empty-message">No normal draft orders</div>';
+    : '<div class="empty-message">No normal orders</div>';
 
   megaContainer.innerHTML = sortedMega.length > 0
     ? sortedMega.map(renderOrderCard).join('')
@@ -513,11 +519,11 @@ function filterOrders() {
     order.person_name.toLowerCase().includes(searchTerm) ||
     order.state.toLowerCase().includes(searchTerm);
 
-  const normalMatches = allOrders.filter(o => o.order_type !== 'mega_buy' && o.state === 'Draft' && matches(o))
+  const normalMatches = allOrders.filter(o => o.order_type !== 'mega_buy' && o.state !== 'Closed' && matches(o))
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   const megaMatches = allOrders.filter(o => o.order_type === 'mega_buy' && matches(o))
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-  const archivedMatches = allOrders.filter(o => o.state !== 'Draft' && o.order_type !== 'mega_buy' && matches(o))
+  const archivedMatches = allOrders.filter(o => o.order_type !== 'mega_buy' && o.state === 'Closed' && matches(o))
     .sort((a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at));
 
   normalContainer.innerHTML = normalMatches.length > 0
@@ -621,6 +627,50 @@ async function placeMegaBuyOrder(orderId) {
   }
 }
 
+async function deliverMegaBuyOrder(orderId) {
+  if (!confirm('Deliver this Mega Buy order? This will mark the Mega order and all child orders as Delivered.')) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`/api/orders/${orderId}/deliver`, {
+      method: 'POST'
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to deliver Mega Buy order');
+    }
+
+    showToast('Mega Buy order delivered and child orders are now Delivered!');
+    loadOrders();
+  } catch (error) {
+    showToast('Error: ' + error.message, 'error');
+  }
+}
+
+async function closeMegaBuyOrder(orderId) {
+  if (!confirm('Close this Delivered Mega Buy order? This will move all child orders to Closed and archive.')) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`/api/orders/${orderId}/close`, {
+      method: 'POST'
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to close Mega Buy order');
+    }
+
+    showToast('Mega Buy order closed and child orders moved to archive!');
+    loadOrders();
+  } catch (error) {
+    showToast('Error: ' + error.message, 'error');
+  }
+}
+
 function openOrderModal() {
   currentOrderId = null;
   document.getElementById('orderModalTitle').textContent = 'Create New Order';
@@ -644,9 +694,10 @@ function getProductUnits(product) {
 
   if (unitLabel) units.add(unitLabel);
   if (packageUnit) {
-    units.add(packageUnit);
-    if (packageUnit.endsWith('s') && packageUnit.length > 1) {
-      units.add(packageUnit.slice(0, -1));
+    // Check if packageUnit is different from unitLabel and not just a plural form
+    const isSingularForm = packageUnit.endsWith('s') && packageUnit.slice(0, -1) === unitLabel;
+    if (packageUnit !== unitLabel && !isSingularForm) {
+      units.add(packageUnit);
     }
   }
 
@@ -701,8 +752,9 @@ function editOrder(orderId) {
     return;
   }
 
-  if (order.state !== 'Draft') {
-    showToast('Only Draft orders can be edited', 'error');
+  const isEditableDeliveredChild = order.state === 'Delivered' && Boolean(order.locked_by_mega_order_id);
+  if (order.state !== 'Draft' && !isEditableDeliveredChild) {
+    showToast('Only Draft orders and Delivered child orders from a Mega Buy can be edited', 'error');
     return;
   }
 
@@ -710,7 +762,7 @@ function editOrder(orderId) {
   document.getElementById('orderModalTitle').textContent = `Edit Order ${order.id}`;
   document.getElementById('orderPersonName').value = order.person_name;
   document.getElementById('orderDate').value = order.order_date;
-  document.getElementById('orderState').value = 'Draft';
+  document.getElementById('orderState').value = order.state;
   document.getElementById('orderItems').innerHTML = '';
 
   order.items.forEach(item => addOrderItemRow(item));
@@ -845,7 +897,17 @@ async function saveOrderHandler(event) {
 }
 
 async function deleteOrder(orderId) {
-  if (!confirm('Are you sure you want to delete this draft order?')) return;
+  const order = allOrders.find(item => item.id === orderId);
+  if (!order) {
+    showToast('Order not found', 'error');
+    return;
+  }
+
+  const confirmationMessage = order.order_type === 'mega_buy' && order.state === 'Closed'
+    ? 'Delete this Closed Mega Buy order? This will also delete all its child orders.'
+    : 'Are you sure you want to delete this draft order?';
+
+  if (!confirm(confirmationMessage)) return;
 
   try {
     const response = await fetch(`/api/orders/${orderId}`, { method: 'DELETE' });

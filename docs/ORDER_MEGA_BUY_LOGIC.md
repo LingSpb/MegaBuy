@@ -7,13 +7,14 @@ This document explains how order state transitions and Mega Buy behavior work in
 ## 1) Order States
 
 - `Draft`: editable/deletable state
-- `Locked`: immutable operational state after placement
+- `Locked`: immutable operational state after placement (before delivery)
+- `Delivered`: delivered state (not deletable)
 - `Closed`: reserved terminal state for completed processes
 
 Current enforced rules in API:
 - create order => always `Draft`
-- edit order => only if `Draft`
-- delete order => only if `Draft`
+- edit order => if `Draft`, or if normal order is `Delivered` and linked as Mega child (`locked_by_mega_order_id`)
+- delete order => if `Draft`, or if order is a `Closed` Mega order (which also deletes its child orders)
 
 ---
 
@@ -72,12 +73,16 @@ Line totals and order totals are recomputed from current product prices.
 
 `POST /api/orders/:id/recalculate`
 
-Allowed only when Mega order is `Draft`.
+Allowed when Mega order is `Draft` or `Delivered`.
 
 Validation:
 - order exists and is `mega_buy`
-- server re-selects all current orders where `state = Draft` and `order_type != mega_buy`
-- at least 2 draft normal orders must exist
+- if Mega is `Draft`:
+  - server re-selects all current orders where `state = Draft` and `order_type != mega_buy`
+  - at least 2 draft normal orders must exist
+- if Mega is `Delivered`:
+  - server recalculates from that Mega order's own `child_order_ids`
+  - all child orders must be in `Delivered` state
 
 Then items + total are regenerated and Mega order linkage is updated to this latest Draft set.
 
@@ -102,23 +107,64 @@ This operation locks the Mega order and all its child orders together.
 
 ---
 
-## 7) Archived UI Behavior
+## 7) Deliver Order Behavior
+
+`POST /api/orders/:id/deliver`
+
+Allowed only for `Locked` Mega orders.
+
+If valid:
+- each child order is updated:
+  - `state = Delivered`
+  - `updated_at = <timestamp>`
+- Mega order is updated:
+  - `state = Delivered`
+  - `updated_at = <timestamp>`
+
+Effects:
+- delivered child orders can be edited
+- delivered orders (child and mega) cannot be deleted
+
+---
+
+## 8) Close Order Behavior
+
+`POST /api/orders/:id/close`
+
+Allowed only for `Delivered` Mega orders.
+
+If valid:
+- each child order is updated:
+  - `state = Closed`
+  - `updated_at = <timestamp>`
+- Mega order is updated:
+  - `state = Closed`
+  - `updated_at = <timestamp>`
+
+Effects:
+- closed child orders move to Archived section
+- closed child orders remain readonly (no Edit/Delete)
+- Closed Mega order can be deleted from UI
+
+---
+
+## 9) Archived UI Behavior
 
 Orders screen is split into:
 
 ### Main area
-- all `Draft` orders
-- all Mega orders (including locked Mega orders)
+- normal orders except `Closed`
+- all Mega orders (including `Closed` Mega orders)
 
 ### Archived area (collapsed by default)
-- non-draft **normal** orders only
-- this means locked child orders move to archive after placing Mega
+- `Closed` normal child orders
+- this means child orders move to archive after closing Mega
 
 The archive panel expands on click and can auto-expand during search when archived matches exist.
 
 ---
 
-## 8) Important Backward Compatibility Note
+## 10) Important Backward Compatibility Note
 
 Older Mega orders may only contain `source_order_ids`.
 

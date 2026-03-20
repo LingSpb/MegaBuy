@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS orders (
   id TEXT PRIMARY KEY,
   person_name TEXT NOT NULL,
   order_date DATE NOT NULL DEFAULT CURRENT_DATE,
-  state TEXT NOT NULL DEFAULT 'Draft' CHECK (state IN ('Draft', 'Locked', 'Closed')),
+  state TEXT NOT NULL DEFAULT 'Draft' CHECK (state IN ('Draft', 'Locked', 'Delivered', 'Closed')),
   order_type TEXT,
   child_order_ids TEXT[],
   source_order_ids TEXT[],
@@ -44,6 +44,12 @@ CREATE TABLE IF NOT EXISTS orders (
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
+
+-- Ensure state constraint includes Delivered in existing databases too
+ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_state_check;
+ALTER TABLE orders
+  ADD CONSTRAINT orders_state_check
+  CHECK (state IN ('Draft', 'Locked', 'Delivered', 'Closed'));
 
 -- 4) Order items table
 CREATE TABLE IF NOT EXISTS order_items (
