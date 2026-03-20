@@ -1,102 +1,15 @@
+require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
 const path = require('path');
-const fs = require('fs');
+const supabase = require('./lib/supabase');
 const app = express();
 
 // Middleware
 app.use(bodyParser.json());
 app.use(express.static('public'));
 
-// Data file paths
-const DATA_DIR = path.join(__dirname, 'data');
-const CATALOG_FILE = path.join(DATA_DIR, 'catalog.json');
-const ORDERS_FILE = path.join(DATA_DIR, 'orders.json');
-const LEGACY_STORE_FILE = path.join(DATA_DIR, 'store.json');
-
-// Ensure data directory exists
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-}
-
-// Migration logic: if old store.json exists but new files don't, split the data
-function migrateFromLegacyFormat() {
-  if (fs.existsSync(LEGACY_STORE_FILE) && !fs.existsSync(CATALOG_FILE) && !fs.existsSync(ORDERS_FILE)) {
-    console.log('Migrating from legacy store.json format...');
-    const legacyData = JSON.parse(fs.readFileSync(LEGACY_STORE_FILE, 'utf8'));
-    
-    // Write catalog
-    const catalogData = {
-      categories: legacyData.categories || [],
-      products: legacyData.products || []
-    };
-    fs.writeFileSync(CATALOG_FILE, JSON.stringify(catalogData, null, 2));
-    
-    // Write orders
-    const ordersData = legacyData.orders || [];
-    fs.writeFileSync(ORDERS_FILE, JSON.stringify(ordersData, null, 2));
-    
-    console.log('Migration complete. New files created: catalog.json, orders.json');
-  }
-}
-
-// Initialize data files if they don't exist
-function initializeDataFiles() {
-  if (!fs.existsSync(CATALOG_FILE)) {
-    const initialCatalog = { categories: [], products: [] };
-    fs.writeFileSync(CATALOG_FILE, JSON.stringify(initialCatalog, null, 2));
-  }
-  
-  if (!fs.existsSync(ORDERS_FILE)) {
-    fs.writeFileSync(ORDERS_FILE, JSON.stringify([], null, 2));
-  }
-}
-
-// Run migration if needed, then initialize
-migrateFromLegacyFormat();
-initializeDataFiles();
-
-// Utility functions to read/write data
-function readCatalog() {
-  const data = fs.readFileSync(CATALOG_FILE, 'utf8');
-  const parsed = JSON.parse(data);
-  return {
-    categories: Array.isArray(parsed.categories) ? parsed.categories : [],
-    products: Array.isArray(parsed.products) ? parsed.products : []
-  };
-}
-
-function writeCatalog(catalog) {
-  fs.writeFileSync(CATALOG_FILE, JSON.stringify(catalog, null, 2));
-}
-
-function readOrders() {
-  const data = fs.readFileSync(ORDERS_FILE, 'utf8');
-  const parsed = JSON.parse(data);
-  return Array.isArray(parsed) ? parsed : [];
-}
-
-function writeOrders(orders) {
-  fs.writeFileSync(ORDERS_FILE, JSON.stringify(orders, null, 2));
-}
-
-function readData() {
-  const catalog = readCatalog();
-  const orders = readOrders().map(order => hydrateOrderPricing(order, catalog.products));
-  return {
-    categories: catalog.categories,
-    products: catalog.products,
-    orders: orders
-  };
-}
-
-function writeData(data) {
-  writeCatalog({
-    categories: data.categories || [],
-    products: data.products || []
-  });
-  writeOrders(data.orders || []);
-}
+// ==================== UTILITY FUNCTIONS ====================
 
 function normalizeUnit(value) {
   return String(value || '').trim().toLowerCase();
@@ -218,7 +131,7 @@ function hydrateOrderPricing(order, products) {
   };
 }
 
-function aggregateMegaBuyItems(data, sourceOrders) {
+function aggregateMegaBuyItems(products, sourceOrders) {
   const perProduct = new Map();
 
   sourceOrders.forEach(order => {
@@ -235,7 +148,7 @@ function aggregateMegaBuyItems(data, sourceOrders) {
   let totalAmount = 0;
 
   for (const [productId, sourceItems] of perProduct.entries()) {
-    const product = data.products.find(p => p.id === productId);
+    const product = products.find(p => p.id === productId);
     if (!product) {
       throw new Error(`Product '${productId}' was not found while aggregating`);
     }
@@ -343,130 +256,321 @@ function getMegaChildOrderIds(order) {
   return [];
 }
 
+// ==================== SUPABASE DATA HELPERS ====================
+
+async function fetchCategories() {
+  const { data, error } = await supabase
+    .from('categories')
+    .select('*')
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return data;
+}
+
+async function fetchProducts() {
+  const { data, error } = await supabase
+    .from('products')
+    .select('*')
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return data;
+}
+
+async function fetchOrders() {
+  const { data: orders, error: ordersError } = await supabase
+    .from('orders')
+    .select('*')
+    .order('created_at', { ascending: true });
+  if (ordersError) throw ordersError;
+
+  // Fetch all order items
+  const { data: allItems, error: itemsError } = await supabase
+    .from('order_items')
+    .select('*')
+    .order('sort_order', { ascending: true });
+  if (itemsError) throw itemsError;
+
+  // Group items by order_id
+  const itemsByOrder = {};
+  for (const item of allItems) {
+    if (!itemsByOrder[item.order_id]) {
+      itemsByOrder[item.order_id] = [];
+    }
+    itemsByOrder[item.order_id].push({
+      product_id: item.product_id,
+      product_name: item.product_name,
+      quantity: Number(item.quantity),
+      unit: item.unit,
+      unit_price: item.unit_price != null ? Number(item.unit_price) : null,
+      line_total: item.line_total != null ? Number(item.line_total) : null
+    });
+  }
+
+  return orders.map(order => ({
+    ...order,
+    items: itemsByOrder[order.id] || []
+  }));
+}
+
+async function fetchOrderById(orderId) {
+  const { data: order, error: orderError } = await supabase
+    .from('orders')
+    .select('*')
+    .eq('id', orderId)
+    .single();
+  if (orderError) return null;
+
+  const { data: items, error: itemsError } = await supabase
+    .from('order_items')
+    .select('*')
+    .eq('order_id', orderId)
+    .order('sort_order', { ascending: true });
+  if (itemsError) throw itemsError;
+
+  return {
+    ...order,
+    items: (items || []).map(item => ({
+      product_id: item.product_id,
+      product_name: item.product_name,
+      quantity: Number(item.quantity),
+      unit: item.unit,
+      unit_price: item.unit_price != null ? Number(item.unit_price) : null,
+      line_total: item.line_total != null ? Number(item.line_total) : null
+    }))
+  };
+}
+
+async function saveOrderItems(orderId, items) {
+  // Delete existing items
+  const { error: deleteError } = await supabase
+    .from('order_items')
+    .delete()
+    .eq('order_id', orderId);
+  if (deleteError) throw deleteError;
+
+  // Insert new items
+  if (items.length > 0) {
+    const rows = items.map((item, index) => ({
+      order_id: orderId,
+      product_id: item.product_id,
+      product_name: item.product_name,
+      quantity: item.quantity,
+      unit: item.unit,
+      unit_price: item.unit_price,
+      line_total: item.line_total,
+      sort_order: index
+    }));
+
+    const { error: insertError } = await supabase
+      .from('order_items')
+      .insert(rows);
+    if (insertError) throw insertError;
+  }
+}
+
 // ==================== CATEGORY ROUTES ====================
 
 // Get all categories
-app.get('/api/categories', (req, res) => {
-  const data = readData();
-  res.json(data.categories);
+app.get('/api/categories', async (req, res) => {
+  try {
+    const categories = await fetchCategories();
+    res.json(categories);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to load categories: ' + error.message });
+  }
 });
 
 // Get category by ID
-app.get('/api/categories/:id', (req, res) => {
-  const data = readData();
-  const category = data.categories.find(c => c.id === req.params.id);
-  if (!category) {
-    return res.status(404).json({ error: 'Category not found' });
+app.get('/api/categories/:id', async (req, res) => {
+  try {
+    const { data: category, error } = await supabase
+      .from('categories')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
+
+    if (error || !category) {
+      return res.status(404).json({ error: 'Category not found' });
+    }
+    res.json(category);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to load category: ' + error.message });
   }
-  res.json(category);
 });
 
 // Create new category
-app.post('/api/categories', (req, res) => {
+app.post('/api/categories', async (req, res) => {
   const { name, description } = req.body;
-  
+
   if (!name || name.trim() === '') {
     return res.status(400).json({ error: 'Category name is required' });
   }
 
-  const data = readData();
-  
-  // Check if category already exists
-  if (data.categories.find(c => c.name.toLowerCase() === name.toLowerCase())) {
-    return res.status(400).json({ error: 'Category already exists' });
+  try {
+    // Check if category already exists
+    const { data: existing } = await supabase
+      .from('categories')
+      .select('id')
+      .ilike('name', name.trim())
+      .limit(1);
+
+    if (existing && existing.length > 0) {
+      return res.status(400).json({ error: 'Category already exists' });
+    }
+
+    const newCategory = {
+      id: Date.now().toString(),
+      name: name.trim(),
+      description: description || '',
+      created_at: new Date().toISOString()
+    };
+
+    const { data, error } = await supabase
+      .from('categories')
+      .insert(newCategory)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.status(201).json(data);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to create category: ' + error.message });
   }
-
-  const newCategory = {
-    id: Date.now().toString(),
-    name: name.trim(),
-    description: description || '',
-    created_at: new Date().toISOString()
-  };
-
-  data.categories.push(newCategory);
-  writeData(data);
-  res.status(201).json(newCategory);
 });
 
 // Update category
-app.put('/api/categories/:id', (req, res) => {
+app.put('/api/categories/:id', async (req, res) => {
   const { name, description } = req.body;
-  
+
   if (!name || name.trim() === '') {
     return res.status(400).json({ error: 'Category name is required' });
   }
 
-  const data = readData();
-  const category = data.categories.find(c => c.id === req.params.id);
-  
-  if (!category) {
-    return res.status(404).json({ error: 'Category not found' });
-  }
+  try {
+    const { data: category, error: findError } = await supabase
+      .from('categories')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
 
-  // Check if new name conflicts with another category
-  if (data.categories.find(c => c.id !== req.params.id && c.name.toLowerCase() === name.toLowerCase())) {
-    return res.status(400).json({ error: 'Category name already exists' });
-  }
+    if (findError || !category) {
+      return res.status(404).json({ error: 'Category not found' });
+    }
 
-  category.name = name.trim();
-  category.description = description || '';
-  writeData(data);
-  res.json(category);
+    // Check for name conflict
+    const { data: conflicts } = await supabase
+      .from('categories')
+      .select('id')
+      .ilike('name', name.trim())
+      .neq('id', req.params.id)
+      .limit(1);
+
+    if (conflicts && conflicts.length > 0) {
+      return res.status(400).json({ error: 'Category name already exists' });
+    }
+
+    const { data, error } = await supabase
+      .from('categories')
+      .update({ name: name.trim(), description: description || '' })
+      .eq('id', req.params.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update category: ' + error.message });
+  }
 });
 
 // Delete category
-app.delete('/api/categories/:id', (req, res) => {
-  const data = readData();
-  const categoryIndex = data.categories.findIndex(c => c.id === req.params.id);
-  
-  if (categoryIndex === -1) {
-    return res.status(404).json({ error: 'Category not found' });
-  }
+app.delete('/api/categories/:id', async (req, res) => {
+  try {
+    const { data: category } = await supabase
+      .from('categories')
+      .select('id')
+      .eq('id', req.params.id)
+      .single();
 
-  // Check if category has products
-  const hasProducts = data.products.some(p => p.category_id === req.params.id);
-  if (hasProducts) {
-    return res.status(400).json({ error: 'Cannot delete category with products' });
-  }
+    if (!category) {
+      return res.status(404).json({ error: 'Category not found' });
+    }
 
-  data.categories.splice(categoryIndex, 1);
-  writeData(data);
-  res.json({ message: 'Category deleted successfully' });
+    // Check if category has products
+    const { data: products } = await supabase
+      .from('products')
+      .select('id')
+      .eq('category_id', req.params.id)
+      .limit(1);
+
+    if (products && products.length > 0) {
+      return res.status(400).json({ error: 'Cannot delete category with products' });
+    }
+
+    const { error } = await supabase
+      .from('categories')
+      .delete()
+      .eq('id', req.params.id);
+
+    if (error) throw error;
+    res.json({ message: 'Category deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete category: ' + error.message });
+  }
 });
 
 // ==================== PRODUCT ROUTES ====================
 
 // Get all products
-app.get('/api/products', (req, res) => {
-  const data = readData();
-  const products = data.products.map(product => {
-    const category = data.categories.find(c => c.id === product.category_id);
-    return {
-      ...product,
-      category_name: category ? category.name : 'Unknown'
-    };
-  });
-  res.json(products);
+app.get('/api/products', async (req, res) => {
+  try {
+    const products = await fetchProducts();
+    const categories = await fetchCategories();
+
+    const enriched = products.map(product => {
+      const category = categories.find(c => c.id === product.category_id);
+      return {
+        ...product,
+        category_name: category ? category.name : 'Unknown'
+      };
+    });
+
+    res.json(enriched);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to load products: ' + error.message });
+  }
 });
 
 // Get product by ID
-app.get('/api/products/:id', (req, res) => {
-  const data = readData();
-  const product = data.products.find(p => p.id === req.params.id);
-  
-  if (!product) {
-    return res.status(404).json({ error: 'Product not found' });
-  }
+app.get('/api/products/:id', async (req, res) => {
+  try {
+    const { data: product, error } = await supabase
+      .from('products')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
 
-  const category = data.categories.find(c => c.id === product.category_id);
-  res.json({
-    ...product,
-    category_name: category ? category.name : 'Unknown'
-  });
+    if (error || !product) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    const { data: category } = await supabase
+      .from('categories')
+      .select('name')
+      .eq('id', product.category_id)
+      .single();
+
+    res.json({
+      ...product,
+      category_name: category ? category.name : 'Unknown'
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to load product: ' + error.message });
+  }
 });
 
 // Create new product
-app.post('/api/products', (req, res) => {
+app.post('/api/products', async (req, res) => {
   const { name, category_id, description, selling_type, price, package_quantity } = req.body;
 
   // Validation
@@ -483,34 +587,47 @@ app.post('/api/products', (req, res) => {
     return res.status(400).json({ error: 'Price must be greater than 0' });
   }
 
-  const data = readData();
+  try {
+    // Check if category exists
+    const { data: category } = await supabase
+      .from('categories')
+      .select('id')
+      .eq('id', category_id)
+      .single();
 
-  // Check if category exists
-  if (!data.categories.find(c => c.id === category_id)) {
-    return res.status(400).json({ error: 'Category not found' });
+    if (!category) {
+      return res.status(400).json({ error: 'Category not found' });
+    }
+
+    const newProduct = {
+      id: Date.now().toString(),
+      name: name.trim(),
+      category_id,
+      description: description || '',
+      selling_type,
+      unit_label: (req.body.unit_label || (selling_type === 'package' ? 'unit' : 'piece')).trim(),
+      unit_price: selling_type === 'package' ? parseFloat(req.body.unit_price) || null : null,
+      price: parseFloat(price),
+      package_quantity: selling_type === 'package' ? parseInt(package_quantity) || 1 : 1,
+      package_unit: selling_type === 'package' ? (req.body.package_unit || 'units') : null,
+      created_at: new Date().toISOString()
+    };
+
+    const { data, error } = await supabase
+      .from('products')
+      .insert(newProduct)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.status(201).json(data);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to create product: ' + error.message });
   }
-
-  const newProduct = {
-    id: Date.now().toString(),
-    name: name.trim(),
-    category_id,
-    description: description || '',
-    selling_type,
-    unit_label: (req.body.unit_label || (selling_type === 'package' ? 'unit' : 'piece')).trim(),
-    unit_price: selling_type === 'package' ? parseFloat(req.body.unit_price) || null : null,
-    price: parseFloat(price),
-    package_quantity: selling_type === 'package' ? parseInt(package_quantity) || 1 : 1,
-    package_unit: selling_type === 'package' ? (req.body.package_unit || 'units') : null,
-    created_at: new Date().toISOString()
-  };
-
-  data.products.push(newProduct);
-  writeData(data);
-  res.status(201).json(newProduct);
 });
 
 // Update product
-app.put('/api/products/:id', (req, res) => {
+app.put('/api/products/:id', async (req, res) => {
   const { name, category_id, description, selling_type, price, package_quantity } = req.body;
 
   // Validation
@@ -527,73 +644,117 @@ app.put('/api/products/:id', (req, res) => {
     return res.status(400).json({ error: 'Price must be greater than 0' });
   }
 
-  const data = readData();
-  const product = data.products.find(p => p.id === req.params.id);
+  try {
+    const { data: product } = await supabase
+      .from('products')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
 
-  if (!product) {
-    return res.status(404).json({ error: 'Product not found' });
+    if (!product) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    // Check if category exists
+    const { data: category } = await supabase
+      .from('categories')
+      .select('id')
+      .eq('id', category_id)
+      .single();
+
+    if (!category) {
+      return res.status(400).json({ error: 'Category not found' });
+    }
+
+    const updates = {
+      name: name.trim(),
+      category_id,
+      description: description || '',
+      selling_type,
+      unit_label: (req.body.unit_label || (selling_type === 'package' ? 'unit' : 'piece')).trim(),
+      unit_price: selling_type === 'package' ? parseFloat(req.body.unit_price) || null : null,
+      price: parseFloat(price),
+      package_quantity: selling_type === 'package' ? parseInt(package_quantity) || 1 : 1,
+      package_unit: selling_type === 'package' ? (req.body.package_unit || 'units') : null
+    };
+
+    const { data, error } = await supabase
+      .from('products')
+      .update(updates)
+      .eq('id', req.params.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update product: ' + error.message });
   }
-
-  // Check if category exists
-  if (!data.categories.find(c => c.id === category_id)) {
-    return res.status(400).json({ error: 'Category not found' });
-  }
-
-  product.name = name.trim();
-  product.category_id = category_id;
-  product.description = description || '';
-  product.selling_type = selling_type;
-  product.unit_label = (req.body.unit_label || (selling_type === 'package' ? 'unit' : 'piece')).trim();
-  product.unit_price = selling_type === 'package' ? parseFloat(req.body.unit_price) || null : null;
-  product.price = parseFloat(price);
-  product.package_quantity = selling_type === 'package' ? parseInt(package_quantity) || 1 : 1;
-  product.package_unit = selling_type === 'package' ? (req.body.package_unit || 'units') : null;
-
-  writeData(data);
-  res.json(product);
 });
 
 // Delete product
-app.delete('/api/products/:id', (req, res) => {
-  const data = readData();
-  const productIndex = data.products.findIndex(p => p.id === req.params.id);
+app.delete('/api/products/:id', async (req, res) => {
+  try {
+    const { data: product } = await supabase
+      .from('products')
+      .select('id')
+      .eq('id', req.params.id)
+      .single();
 
-  if (productIndex === -1) {
-    return res.status(404).json({ error: 'Product not found' });
+    if (!product) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    // Check if product is used in orders
+    const { data: usedItems } = await supabase
+      .from('order_items')
+      .select('id')
+      .eq('product_id', req.params.id)
+      .limit(1);
+
+    if (usedItems && usedItems.length > 0) {
+      return res.status(400).json({ error: 'Cannot delete product used in orders' });
+    }
+
+    const { error } = await supabase
+      .from('products')
+      .delete()
+      .eq('id', req.params.id);
+
+    if (error) throw error;
+    res.json({ message: 'Product deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete product: ' + error.message });
   }
-
-  const hasOrderItems = data.orders.some(order =>
-    Array.isArray(order.items) && order.items.some(item => item.product_id === req.params.id)
-  );
-  if (hasOrderItems) {
-    return res.status(400).json({ error: 'Cannot delete product used in orders' });
-  }
-
-  data.products.splice(productIndex, 1);
-  writeData(data);
-  res.json({ message: 'Product deleted successfully' });
 });
 
 // ==================== ORDER ROUTES ====================
 
-app.get('/api/orders', (req, res) => {
-  const data = readData();
-  res.json(data.orders);
-});
-
-app.get('/api/orders/:id', (req, res) => {
-  const data = readData();
-  const order = data.orders.find(o => o.id === req.params.id);
-
-  if (!order) {
-    return res.status(404).json({ error: 'Order not found' });
+app.get('/api/orders', async (req, res) => {
+  try {
+    const orders = await fetchOrders();
+    const products = await fetchProducts();
+    const hydrated = orders.map(order => hydrateOrderPricing(order, products));
+    res.json(hydrated);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to load orders: ' + error.message });
   }
-
-  res.json(order);
 });
 
-app.post('/api/orders', (req, res) => {
-  const data = readData();
+app.get('/api/orders/:id', async (req, res) => {
+  try {
+    const order = await fetchOrderById(req.params.id);
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+    const products = await fetchProducts();
+    res.json(hydrateOrderPricing(order, products));
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to load order: ' + error.message });
+  }
+});
+
+app.post('/api/orders', async (req, res) => {
   const { person_name, order_date, items } = req.body;
 
   if (!person_name || person_name.trim() === '') {
@@ -604,304 +765,415 @@ app.post('/api/orders', (req, res) => {
     return res.status(400).json({ error: 'Order must include at least one item' });
   }
 
-  const orderItems = [];
-  let orderTotal = 0;
+  try {
+    const products = await fetchProducts();
+    const orderItems = [];
+    let orderTotal = 0;
 
-  for (let index = 0; index < items.length; index += 1) {
-    const item = items[index];
-    const quantity = Number(item.quantity);
-    const unit = normalizeUnit(item.unit);
-    const product = data.products.find(p => p.id === item.product_id);
+    for (let index = 0; index < items.length; index += 1) {
+      const item = items[index];
+      const quantity = Number(item.quantity);
+      const unit = normalizeUnit(item.unit);
+      const product = products.find(p => p.id === item.product_id);
 
-    if (!product) {
-      return res.status(400).json({ error: `Product not found at line ${index + 1}` });
-    }
+      if (!product) {
+        return res.status(400).json({ error: `Product not found at line ${index + 1}` });
+      }
 
-    if (!quantity || quantity <= 0) {
-      return res.status(400).json({ error: `Quantity must be greater than 0 at line ${index + 1}` });
-    }
+      if (!quantity || quantity <= 0) {
+        return res.status(400).json({ error: `Quantity must be greater than 0 at line ${index + 1}` });
+      }
 
-    if (!unit) {
-      return res.status(400).json({ error: `Unit is required at line ${index + 1}` });
-    }
+      if (!unit) {
+        return res.status(400).json({ error: `Unit is required at line ${index + 1}` });
+      }
 
-    const allowedUnits = buildProductUnits(product);
-    if (!allowedUnits.includes(unit)) {
-      return res.status(400).json({
-        error: `Unit '${item.unit}' is not valid for ${product.name}. Allowed units: ${allowedUnits.join(', ')}`
+      const allowedUnits = buildProductUnits(product);
+      if (!allowedUnits.includes(unit)) {
+        return res.status(400).json({
+          error: `Unit '${item.unit}' is not valid for ${product.name}. Allowed units: ${allowedUnits.join(', ')}`
+        });
+      }
+
+      const unitPrice = getProductUnitPrice(product, unit);
+      const lineTotal = unitPrice !== null ? Number((unitPrice * quantity).toFixed(2)) : null;
+
+      if (lineTotal !== null) {
+        orderTotal += lineTotal;
+      }
+
+      orderItems.push({
+        product_id: product.id,
+        product_name: product.name,
+        quantity,
+        unit,
+        unit_price: unitPrice,
+        line_total: lineTotal
       });
     }
 
-    const unitPrice = getProductUnitPrice(product, unit);
-    const lineTotal = unitPrice !== null ? Number((unitPrice * quantity).toFixed(2)) : null;
+    const orderId = `ord_${Date.now()}`;
+    const now = new Date().toISOString();
 
-    if (lineTotal !== null) {
-      orderTotal += lineTotal;
-    }
+    const newOrder = {
+      id: orderId,
+      person_name: person_name.trim(),
+      order_date: order_date || new Date().toISOString().split('T')[0],
+      state: 'Draft',
+      total_amount: Number(orderTotal.toFixed(2)),
+      created_at: now,
+      updated_at: now
+    };
 
-    orderItems.push({
-      product_id: product.id,
-      product_name: product.name,
-      quantity,
-      unit,
-      unit_price: unitPrice,
-      line_total: lineTotal
+    const { data: savedOrder, error: orderError } = await supabase
+      .from('orders')
+      .insert(newOrder)
+      .select()
+      .single();
+
+    if (orderError) throw orderError;
+
+    await saveOrderItems(orderId, orderItems);
+
+    res.status(201).json({
+      ...savedOrder,
+      items: orderItems
     });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to create order: ' + error.message });
   }
-
-  const newOrder = {
-    id: `ord_${Date.now()}`,
-    person_name: person_name.trim(),
-    order_date: order_date || new Date().toISOString().split('T')[0],
-    state: 'Draft',
-    items: orderItems,
-    total_amount: Number(orderTotal.toFixed(2)),
-    created_at: new Date().toISOString()
-  };
-
-  data.orders.push(newOrder);
-  writeData(data);
-  res.status(201).json(newOrder);
 });
 
-app.put('/api/orders/:id', (req, res) => {
-  const data = readData();
-  const order = data.orders.find(o => o.id === req.params.id);
+app.put('/api/orders/:id', async (req, res) => {
   const { person_name, order_date, items } = req.body;
 
-  if (!order) {
-    return res.status(404).json({ error: 'Order not found' });
-  }
+  try {
+    const order = await fetchOrderById(req.params.id);
 
-  if (order.state !== 'Draft') {
-    return res.status(400).json({ error: 'Only Draft orders can be edited' });
-  }
-
-  if (order.order_type === 'mega_buy') {
-    return res.status(400).json({ error: 'Mega Buy order product list and quantity are auto-generated and cannot be edited manually' });
-  }
-
-  if (!person_name || person_name.trim() === '') {
-    return res.status(400).json({ error: 'Person name is required' });
-  }
-
-  if (!Array.isArray(items) || items.length === 0) {
-    return res.status(400).json({ error: 'Order must include at least one item' });
-  }
-
-  const orderItems = [];
-  let orderTotal = 0;
-
-  for (let index = 0; index < items.length; index += 1) {
-    const item = items[index];
-    const quantity = Number(item.quantity);
-    const unit = normalizeUnit(item.unit);
-    const product = data.products.find(p => p.id === item.product_id);
-
-    if (!product) {
-      return res.status(400).json({ error: `Product not found at line ${index + 1}` });
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
     }
 
-    if (!quantity || quantity <= 0) {
-      return res.status(400).json({ error: `Quantity must be greater than 0 at line ${index + 1}` });
+    if (order.state !== 'Draft') {
+      return res.status(400).json({ error: 'Only Draft orders can be edited' });
     }
 
-    if (!unit) {
-      return res.status(400).json({ error: `Unit is required at line ${index + 1}` });
+    if (order.order_type === 'mega_buy') {
+      return res.status(400).json({ error: 'Mega Buy order product list and quantity are auto-generated and cannot be edited manually' });
     }
 
-    const allowedUnits = buildProductUnits(product);
-    if (!allowedUnits.includes(unit)) {
-      return res.status(400).json({
-        error: `Unit '${item.unit}' is not valid for ${product.name}. Allowed units: ${allowedUnits.join(', ')}`
+    if (!person_name || person_name.trim() === '') {
+      return res.status(400).json({ error: 'Person name is required' });
+    }
+
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ error: 'Order must include at least one item' });
+    }
+
+    const products = await fetchProducts();
+    const orderItems = [];
+    let orderTotal = 0;
+
+    for (let index = 0; index < items.length; index += 1) {
+      const item = items[index];
+      const quantity = Number(item.quantity);
+      const unit = normalizeUnit(item.unit);
+      const product = products.find(p => p.id === item.product_id);
+
+      if (!product) {
+        return res.status(400).json({ error: `Product not found at line ${index + 1}` });
+      }
+
+      if (!quantity || quantity <= 0) {
+        return res.status(400).json({ error: `Quantity must be greater than 0 at line ${index + 1}` });
+      }
+
+      if (!unit) {
+        return res.status(400).json({ error: `Unit is required at line ${index + 1}` });
+      }
+
+      const allowedUnits = buildProductUnits(product);
+      if (!allowedUnits.includes(unit)) {
+        return res.status(400).json({
+          error: `Unit '${item.unit}' is not valid for ${product.name}. Allowed units: ${allowedUnits.join(', ')}`
+        });
+      }
+
+      const unitPrice = getProductUnitPrice(product, unit);
+      const lineTotal = unitPrice !== null ? Number((unitPrice * quantity).toFixed(2)) : null;
+
+      if (lineTotal !== null) {
+        orderTotal += lineTotal;
+      }
+
+      orderItems.push({
+        product_id: product.id,
+        product_name: product.name,
+        quantity,
+        unit,
+        unit_price: unitPrice,
+        line_total: lineTotal
       });
     }
 
-    const unitPrice = getProductUnitPrice(product, unit);
-    const lineTotal = unitPrice !== null ? Number((unitPrice * quantity).toFixed(2)) : null;
+    const now = new Date().toISOString();
+    const { data: updatedOrder, error: updateError } = await supabase
+      .from('orders')
+      .update({
+        person_name: person_name.trim(),
+        order_date: order_date || order.order_date,
+        total_amount: Number(orderTotal.toFixed(2)),
+        updated_at: now
+      })
+      .eq('id', req.params.id)
+      .select()
+      .single();
 
-    if (lineTotal !== null) {
-      orderTotal += lineTotal;
+    if (updateError) throw updateError;
+
+    await saveOrderItems(req.params.id, orderItems);
+
+    res.json({
+      ...updatedOrder,
+      items: orderItems
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update order: ' + error.message });
+  }
+});
+
+app.post('/api/orders/mega-buy', async (req, res) => {
+  try {
+    const allOrders = await fetchOrders();
+    const products = await fetchProducts();
+
+    // Hydrate all orders for proper pricing
+    const hydratedOrders = allOrders.map(o => hydrateOrderPricing(o, products));
+
+    const sourceOrders = hydratedOrders.filter(order => order.state === 'Draft' && order.order_type !== 'mega_buy');
+
+    if (sourceOrders.length < 2) {
+      return res.status(400).json({ error: 'Mega Buy requires at least 2 Draft normal orders' });
     }
 
-    orderItems.push({
-      product_id: product.id,
-      product_name: product.name,
-      quantity,
-      unit,
-      unit_price: unitPrice,
-      line_total: lineTotal
+    const sourceOrderIds = sourceOrders.map(order => order.id);
+
+    let aggregated;
+    try {
+      aggregated = aggregateMegaBuyItems(products, sourceOrders);
+    } catch (err) {
+      return res.status(400).json({ error: err.message });
+    }
+
+    const orderId = `ord_${Date.now()}`;
+    const now = new Date().toISOString();
+
+    const megaOrder = {
+      id: orderId,
+      person_name: req.body.person_name || 'Mega Buy Order',
+      order_date: req.body.order_date || new Date().toISOString().split('T')[0],
+      state: 'Draft',
+      order_type: 'mega_buy',
+      child_order_ids: sourceOrderIds,
+      source_order_ids: sourceOrderIds,
+      immutable_items: true,
+      total_amount: aggregated.total_amount,
+      created_at: now,
+      updated_at: now
+    };
+
+    const { data: savedOrder, error: orderError } = await supabase
+      .from('orders')
+      .insert(megaOrder)
+      .select()
+      .single();
+
+    if (orderError) throw orderError;
+
+    await saveOrderItems(orderId, aggregated.items);
+
+    res.status(201).json({
+      ...savedOrder,
+      items: aggregated.items
     });
-  }
-
-  order.person_name = person_name.trim();
-  order.order_date = order_date || order.order_date;
-  order.items = orderItems;
-  order.total_amount = Number(orderTotal.toFixed(2));
-  order.updated_at = new Date().toISOString();
-
-  writeData(data);
-  res.json(order);
-});
-
-app.post('/api/orders/mega-buy', (req, res) => {
-  const data = readData();
-  const sourceOrders = data.orders.filter(order => order.state === 'Draft' && order.order_type !== 'mega_buy');
-
-  if (sourceOrders.length < 2) {
-    return res.status(400).json({ error: 'Mega Buy requires at least 2 Draft normal orders' });
-  }
-
-  const sourceOrderIds = sourceOrders.map(order => order.id);
-
-  let aggregated;
-  try {
-    aggregated = aggregateMegaBuyItems(data, sourceOrders);
   } catch (error) {
-    return res.status(400).json({ error: error.message });
+    res.status(500).json({ error: 'Failed to create Mega Buy order: ' + error.message });
   }
-
-  const megaOrder = {
-    id: `ord_${Date.now()}`,
-    person_name: req.body.person_name || 'Mega Buy Order',
-    order_date: req.body.order_date || new Date().toISOString().split('T')[0],
-    state: 'Draft',
-    order_type: 'mega_buy',
-    child_order_ids: sourceOrderIds,
-    source_order_ids: sourceOrderIds,
-    immutable_items: true,
-    items: aggregated.items,
-    total_amount: aggregated.total_amount,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  };
-
-  data.orders.push(megaOrder);
-  writeData(data);
-  res.status(201).json(megaOrder);
 });
 
-app.post('/api/orders/:id/recalculate', (req, res) => {
-  const data = readData();
-  const order = data.orders.find(item => item.id === req.params.id);
-
-  if (!order) {
-    return res.status(404).json({ error: 'Order not found' });
-  }
-
-  if (order.order_type !== 'mega_buy') {
-    return res.status(400).json({ error: 'Only Mega Buy orders can be recalculated' });
-  }
-
-  if (order.state !== 'Draft') {
-    return res.status(400).json({ error: 'Only Draft Mega Buy orders can be recalculated' });
-  }
-
-  const sourceOrders = data.orders.filter(item => item.state === 'Draft' && item.order_type !== 'mega_buy');
-
-  if (sourceOrders.length < 2) {
-    return res.status(400).json({ error: 'Mega Buy recalculation requires at least 2 Draft normal orders' });
-  }
-
-  const childOrderIds = sourceOrders.map(item => item.id);
-
-  let aggregated;
+app.post('/api/orders/:id/recalculate', async (req, res) => {
   try {
-    aggregated = aggregateMegaBuyItems(data, sourceOrders);
+    const order = await fetchOrderById(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    if (order.order_type !== 'mega_buy') {
+      return res.status(400).json({ error: 'Only Mega Buy orders can be recalculated' });
+    }
+
+    if (order.state !== 'Draft') {
+      return res.status(400).json({ error: 'Only Draft Mega Buy orders can be recalculated' });
+    }
+
+    const allOrders = await fetchOrders();
+    const products = await fetchProducts();
+    const hydratedOrders = allOrders.map(o => hydrateOrderPricing(o, products));
+
+    const sourceOrders = hydratedOrders.filter(item => item.state === 'Draft' && item.order_type !== 'mega_buy');
+
+    if (sourceOrders.length < 2) {
+      return res.status(400).json({ error: 'Mega Buy recalculation requires at least 2 Draft normal orders' });
+    }
+
+    const childOrderIds = sourceOrders.map(item => item.id);
+
+    let aggregated;
+    try {
+      aggregated = aggregateMegaBuyItems(products, sourceOrders);
+    } catch (err) {
+      return res.status(400).json({ error: err.message });
+    }
+
+    const now = new Date().toISOString();
+    const { data: updatedOrder, error: updateError } = await supabase
+      .from('orders')
+      .update({
+        total_amount: aggregated.total_amount,
+        child_order_ids: childOrderIds,
+        source_order_ids: childOrderIds,
+        updated_at: now
+      })
+      .eq('id', req.params.id)
+      .select()
+      .single();
+
+    if (updateError) throw updateError;
+
+    await saveOrderItems(req.params.id, aggregated.items);
+
+    res.json({
+      ...updatedOrder,
+      items: aggregated.items
+    });
   } catch (error) {
-    return res.status(400).json({ error: error.message });
+    res.status(500).json({ error: 'Failed to recalculate order: ' + error.message });
   }
-
-  order.items = aggregated.items;
-  order.total_amount = aggregated.total_amount;
-  order.child_order_ids = childOrderIds;
-  order.source_order_ids = childOrderIds;
-  order.updated_at = new Date().toISOString();
-  writeData(data);
-
-  res.json(order);
 });
 
-app.post('/api/orders/:id/place', (req, res) => {
-  const data = readData();
-  const order = data.orders.find(item => item.id === req.params.id);
+app.post('/api/orders/:id/place', async (req, res) => {
+  try {
+    const order = await fetchOrderById(req.params.id);
 
-  if (!order) {
-    return res.status(404).json({ error: 'Order not found' });
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    if (order.order_type !== 'mega_buy') {
+      return res.status(400).json({ error: 'Only Mega Buy orders can be placed with this action' });
+    }
+
+    if (order.state !== 'Draft') {
+      return res.status(400).json({ error: 'Only Draft Mega Buy orders can be placed' });
+    }
+
+    const childOrderIds = getMegaChildOrderIds(order);
+
+    if (childOrderIds.length < 2) {
+      return res.status(400).json({ error: 'Mega Buy order has invalid source orders' });
+    }
+
+    // Fetch child orders
+    const { data: sourceOrders, error: fetchError } = await supabase
+      .from('orders')
+      .select('*')
+      .in('id', childOrderIds);
+
+    if (fetchError) throw fetchError;
+
+    if (sourceOrders.length !== childOrderIds.length) {
+      return res.status(400).json({ error: 'One or more source orders no longer exist' });
+    }
+
+    if (sourceOrders.some(item => item.order_type === 'mega_buy')) {
+      return res.status(400).json({ error: 'Mega Buy order cannot have Mega Buy child orders' });
+    }
+
+    if (sourceOrders.some(item => item.state !== 'Draft')) {
+      return res.status(400).json({ error: 'All child orders must be Draft before placing Mega Buy order' });
+    }
+
+    const now = new Date().toISOString();
+
+    // Lock all child orders
+    for (const childOrder of sourceOrders) {
+      const { error: lockError } = await supabase
+        .from('orders')
+        .update({
+          state: 'Locked',
+          locked_by_mega_order_id: order.id,
+          locked_at: now,
+          updated_at: now
+        })
+        .eq('id', childOrder.id);
+
+      if (lockError) throw lockError;
+    }
+
+    // Lock the mega order
+    const { error: megaLockError } = await supabase
+      .from('orders')
+      .update({
+        state: 'Locked',
+        child_order_ids: childOrderIds,
+        source_order_ids: childOrderIds,
+        placed_at: now,
+        updated_at: now
+      })
+      .eq('id', req.params.id);
+
+    if (megaLockError) throw megaLockError;
+
+    res.json({
+      message: 'Mega Buy order placed successfully',
+      mega_order_id: order.id,
+      child_order_ids: childOrderIds,
+      state: 'Locked'
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to place order: ' + error.message });
   }
-
-  if (order.order_type !== 'mega_buy') {
-    return res.status(400).json({ error: 'Only Mega Buy orders can be placed with this action' });
-  }
-
-  if (order.state !== 'Draft') {
-    return res.status(400).json({ error: 'Only Draft Mega Buy orders can be placed' });
-  }
-
-  const childOrderIds = getMegaChildOrderIds(order);
-
-  if (childOrderIds.length < 2) {
-    return res.status(400).json({ error: 'Mega Buy order has invalid source orders' });
-  }
-
-  const sourceOrders = childOrderIds.map(orderId => data.orders.find(item => item.id === orderId));
-
-  if (sourceOrders.some(item => !item)) {
-    return res.status(400).json({ error: 'One or more source orders no longer exist' });
-  }
-
-  if (sourceOrders.some(item => item.order_type === 'mega_buy')) {
-    return res.status(400).json({ error: 'Mega Buy order cannot have Mega Buy child orders' });
-  }
-
-  if (sourceOrders.some(item => item.state !== 'Draft')) {
-    return res.status(400).json({ error: 'All child orders must be Draft before placing Mega Buy order' });
-  }
-
-  const now = new Date().toISOString();
-
-  sourceOrders.forEach(childOrder => {
-    childOrder.state = 'Locked';
-    childOrder.locked_by_mega_order_id = order.id;
-    childOrder.locked_at = now;
-    childOrder.updated_at = now;
-  });
-
-  order.state = 'Locked';
-  order.child_order_ids = childOrderIds;
-  order.source_order_ids = childOrderIds;
-  order.placed_at = now;
-  order.updated_at = now;
-
-  writeData(data);
-
-  res.json({
-    message: 'Mega Buy order placed successfully',
-    mega_order_id: order.id,
-    child_order_ids: childOrderIds,
-    state: order.state
-  });
 });
 
-app.delete('/api/orders/:id', (req, res) => {
-  const data = readData();
-  const orderIndex = data.orders.findIndex(o => o.id === req.params.id);
+app.delete('/api/orders/:id', async (req, res) => {
+  try {
+    const order = await fetchOrderById(req.params.id);
 
-  if (orderIndex === -1) {
-    return res.status(404).json({ error: 'Order not found' });
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    if (order.state !== 'Draft') {
+      return res.status(400).json({ error: 'Only Draft orders can be deleted' });
+    }
+
+    // order_items deleted via ON DELETE CASCADE
+    const { error } = await supabase
+      .from('orders')
+      .delete()
+      .eq('id', req.params.id);
+
+    if (error) throw error;
+    res.json({ message: 'Order deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete order: ' + error.message });
   }
-
-  if (data.orders[orderIndex].state !== 'Draft') {
-    return res.status(400).json({ error: 'Only Draft orders can be deleted' });
-  }
-
-  data.orders.splice(orderIndex, 1);
-  writeData(data);
-  res.json({ message: 'Order deleted successfully' });
 });
 
 // Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`Connected to Supabase: ${process.env.SUPABASE_URL}`);
 });
