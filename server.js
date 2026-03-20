@@ -1546,9 +1546,13 @@ app.delete('/api/orders/:id', async (req, res) => {
   }
 });
 
-// Start server
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-  console.log(`Connected to Supabase: ${process.env.SUPABASE_URL}`);
-});
+// Export app for Vercel serverless; start server when running locally
+if (require.main === module) {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`Connected to Supabase: ${process.env.SUPABASE_URL}`);
+  });
+}
+
+module.exports = app;
