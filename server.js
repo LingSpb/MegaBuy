@@ -988,10 +988,22 @@ app.post('/api/orders/mega-buy', async (req, res) => {
     // Hydrate all orders for proper pricing
     const hydratedOrders = allOrders.map(o => hydrateOrderPricing(o, products));
 
-    const sourceOrders = hydratedOrders.filter(order => order.state === 'Draft' && order.order_type !== 'mega_buy');
+    // Get all order IDs that are already assigned to a mega order
+    const assignedOrderIds = new Set();
+    hydratedOrders.forEach(o => {
+      if (o.order_type === 'mega_buy' && Array.isArray(o.child_order_ids)) {
+        o.child_order_ids.forEach(id => assignedOrderIds.add(id));
+      }
+    });
+
+    const sourceOrders = hydratedOrders.filter(order => 
+      order.state === 'Draft' && 
+      order.order_type !== 'mega_buy' &&
+      !assignedOrderIds.has(order.id)
+    );
 
     if (sourceOrders.length < 2) {
-      return res.status(400).json({ error: 'Mega Buy requires at least 2 Draft normal orders' });
+      return res.status(400).json({ error: 'Mega Buy requires at least 2 Draft normal orders that are not already assigned to another Mega order' });
     }
 
     const sourceOrderIds = sourceOrders.map(order => order.id);
@@ -1063,10 +1075,22 @@ app.post('/api/orders/:id/recalculate', async (req, res) => {
     let childOrderIds = [];
 
     if (order.state === 'Draft') {
-      sourceOrders = hydratedOrders.filter(item => item.state === 'Draft' && item.order_type !== 'mega_buy');
+      // Get all order IDs that are already assigned to another mega order (not this one)
+      const assignedOrderIds = new Set();
+      hydratedOrders.forEach(o => {
+        if (o.order_type === 'mega_buy' && o.id !== order.id && Array.isArray(o.child_order_ids)) {
+          o.child_order_ids.forEach(id => assignedOrderIds.add(id));
+        }
+      });
+
+      sourceOrders = hydratedOrders.filter(item => 
+        item.state === 'Draft' && 
+        item.order_type !== 'mega_buy' &&
+        !assignedOrderIds.has(item.id)
+      );
 
       if (sourceOrders.length < 2) {
-        return res.status(400).json({ error: 'Mega Buy recalculation requires at least 2 Draft normal orders' });
+        return res.status(400).json({ error: 'Mega Buy recalculation requires at least 2 Draft normal orders that are not already assigned to another Mega order' });
       }
 
       childOrderIds = sourceOrders.map(item => item.id);
@@ -1135,30 +1159,37 @@ app.post('/api/orders/:id/place', async (req, res) => {
       return res.status(400).json({ error: 'Only Draft Mega Buy orders can be placed' });
     }
 
-    const childOrderIds = getMegaChildOrderIds(order);
+    // Recalculate mega order before placing - re-select all Draft normal orders not assigned to another mega order
+    const allOrders = await fetchOrders();
+    const products = await fetchProducts();
+    const hydratedOrders = allOrders.map(o => hydrateOrderPricing(o, products));
 
-    if (childOrderIds.length < 2) {
-      return res.status(400).json({ error: 'Mega Buy order has invalid source orders' });
+    // Get all order IDs that are already assigned to another mega order (not this one)
+    const assignedOrderIds = new Set();
+    hydratedOrders.forEach(o => {
+      if (o.order_type === 'mega_buy' && o.id !== order.id && Array.isArray(o.child_order_ids)) {
+        o.child_order_ids.forEach(id => assignedOrderIds.add(id));
+      }
+    });
+
+    const sourceOrders = hydratedOrders.filter(item => 
+      item.state === 'Draft' && 
+      item.order_type !== 'mega_buy' &&
+      !assignedOrderIds.has(item.id)
+    );
+
+    if (sourceOrders.length < 2) {
+      return res.status(400).json({ error: 'Mega Buy order requires at least 2 Draft normal orders that are not already assigned to another Mega order' });
     }
 
-    // Fetch child orders
-    const { data: sourceOrders, error: fetchError } = await supabase
-      .from('orders')
-      .select('*')
-      .in('id', childOrderIds);
+    const childOrderIds = sourceOrders.map(item => item.id);
 
-    if (fetchError) throw fetchError;
-
-    if (sourceOrders.length !== childOrderIds.length) {
-      return res.status(400).json({ error: 'One or more source orders no longer exist' });
-    }
-
-    if (sourceOrders.some(item => item.order_type === 'mega_buy')) {
-      return res.status(400).json({ error: 'Mega Buy order cannot have Mega Buy child orders' });
-    }
-
-    if (sourceOrders.some(item => item.state !== 'Draft')) {
-      return res.status(400).json({ error: 'All child orders must be Draft before placing Mega Buy order' });
+    // Aggregate items from source orders
+    let aggregated;
+    try {
+      aggregated = aggregateMegaBuyItems(products, sourceOrders);
+    } catch (err) {
+      return res.status(400).json({ error: err.message });
     }
 
     const now = new Date().toISOString();
@@ -1178,11 +1209,12 @@ app.post('/api/orders/:id/place', async (req, res) => {
       if (lockError) throw lockError;
     }
 
-    // Lock the mega order
+    // Update and lock the mega order with recalculated items
     const { error: megaLockError } = await supabase
       .from('orders')
       .update({
         state: 'Locked',
+        total_amount: aggregated.total_amount,
         child_order_ids: childOrderIds,
         source_order_ids: childOrderIds,
         placed_at: now,
@@ -1191,6 +1223,9 @@ app.post('/api/orders/:id/place', async (req, res) => {
       .eq('id', req.params.id);
 
     if (megaLockError) throw megaLockError;
+
+    // Save recalculated items
+    await saveOrderItems(req.params.id, aggregated.items);
 
     res.json({
       message: 'Mega Buy order placed successfully',
@@ -1278,6 +1313,88 @@ app.post('/api/orders/:id/deliver', async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ error: 'Failed to deliver order: ' + error.message });
+  }
+});
+
+// Hidden unlock endpoint - returns Locked Mega order and its children to Draft state
+app.get('/api/orders/:id/unlock', async (req, res) => {
+  try {
+    const order = await fetchOrderById(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    if (order.order_type !== 'mega_buy') {
+      return res.status(400).json({ error: 'Only Mega Buy orders can be unlocked' });
+    }
+
+    if (order.state !== 'Locked') {
+      return res.status(400).json({ error: 'Only Locked Mega Buy orders can be unlocked' });
+    }
+
+    const childOrderIds = getMegaChildOrderIds(order);
+
+    if (childOrderIds.length < 2) {
+      return res.status(400).json({ error: 'Mega Buy order has invalid source orders' });
+    }
+
+    const { data: sourceOrders, error: fetchError } = await supabase
+      .from('orders')
+      .select('*')
+      .in('id', childOrderIds);
+
+    if (fetchError) throw fetchError;
+
+    if (sourceOrders.length !== childOrderIds.length) {
+      return res.status(400).json({ error: 'One or more source orders no longer exist' });
+    }
+
+    if (sourceOrders.some(item => item.order_type === 'mega_buy')) {
+      return res.status(400).json({ error: 'Mega Buy order cannot have Mega Buy child orders' });
+    }
+
+    if (sourceOrders.some(item => item.state !== 'Locked')) {
+      return res.status(400).json({ error: 'All child orders must be Locked to unlock Mega Buy order' });
+    }
+
+    const now = new Date().toISOString();
+
+    // Unlock all child orders - return them to Draft state
+    for (const childOrder of sourceOrders) {
+      const { error: unlockError } = await supabase
+        .from('orders')
+        .update({
+          state: 'Draft',
+          locked_by_mega_order_id: null,
+          locked_at: null,
+          updated_at: now
+        })
+        .eq('id', childOrder.id);
+
+      if (unlockError) throw unlockError;
+    }
+
+    // Unlock the mega order - return to Draft state
+    const { error: megaUnlockError } = await supabase
+      .from('orders')
+      .update({
+        state: 'Draft',
+        placed_at: null,
+        updated_at: now
+      })
+      .eq('id', req.params.id);
+
+    if (megaUnlockError) throw megaUnlockError;
+
+    res.json({
+      message: 'Mega Buy order unlocked successfully',
+      mega_order_id: order.id,
+      child_order_ids: childOrderIds,
+      state: 'Draft'
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to unlock order: ' + error.message });
   }
 });
 

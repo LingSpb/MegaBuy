@@ -53,13 +53,20 @@
         Manage your product catalog. Add, edit, and delete products with pricing information and selling types (by unit or by package).
       </div>
 
-      <div class="search-box">
-        <input 
-          type="text" 
-          id="productSearch" 
-          placeholder="Search products..." 
-          onkeyup="filterProducts()"
-        >
+      <div class="filter-bar">
+        <div class="search-box">
+          <input 
+            type="text" 
+            id="productSearch" 
+            placeholder="Search products..." 
+            onkeyup="filterProducts()"
+          >
+        </div>
+        <div class="filter-dropdown">
+          <select id="categoryFilter" onchange="filterProducts()">
+            <option value="">All Categories</option>
+          </select>
+        </div>
       </div>
 
       <div id="products-list" class="list-container">

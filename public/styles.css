@@ -198,6 +198,39 @@ body {
   border-color: #667eea;
 }
 
+/* Filter Bar */
+.filter-bar {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.filter-bar .search-box {
+  margin-bottom: 0;
+}
+
+.filter-dropdown select {
+  padding: 12px 15px;
+  border: 2px solid #e0e0e0;
+  border-radius: 5px;
+  font-size: 14px;
+  min-width: 200px;
+  background: white;
+  cursor: pointer;
+  transition: border-color 0.3s;
+}
+
+.filter-dropdown select:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.filter-dropdown select:hover {
+  border-color: #667eea;
+}
+
 /* List Container */
 .list-container {
   display: grid;
@@ -213,11 +246,20 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  transition: box-shadow 0.3s;
+  transition: box-shadow 0.3s, transform 0.2s;
 }
 
 .card:hover {
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+.card-clickable {
+  cursor: pointer;
+}
+
+.card-clickable:hover {
+  transform: translateX(5px);
+  border-left-color: #764ba2;
 }
 
 .card-content h3 {

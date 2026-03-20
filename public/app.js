@@ -53,13 +53,13 @@ function displayCategories() {
   }
 
   container.innerHTML = allCategories.map(category => `
-    <div class="card">
+    <div class="card card-clickable" onclick="navigateToProductsByCategory('${category.id}')">
       <div class="card-content">
         <h3>${escapeHtml(category.name)}</h3>
         <p>${escapeHtml(category.description || 'No description')}</p>
         <small>Created: ${new Date(category.created_at).toLocaleDateString()}</small>
       </div>
-      <div class="card-actions">
+      <div class="card-actions" onclick="event.stopPropagation()">
         <button class="btn btn-edit" onclick="editCategory('${category.id}')">Edit</button>
         <button class="btn btn-danger" onclick="deleteCategory('${category.id}')">Delete</button>
       </div>
@@ -81,13 +81,13 @@ function filterCategories() {
   }
 
   container.innerHTML = filtered.map(category => `
-    <div class="card">
+    <div class="card card-clickable" onclick="navigateToProductsByCategory('${category.id}')">
       <div class="card-content">
         <h3>${escapeHtml(category.name)}</h3>
         <p>${escapeHtml(category.description || 'No description')}</p>
         <small>Created: ${new Date(category.created_at).toLocaleDateString()}</small>
       </div>
-      <div class="card-actions">
+      <div class="card-actions" onclick="event.stopPropagation()">
         <button class="btn btn-edit" onclick="editCategory('${category.id}')">Edit</button>
         <button class="btn btn-danger" onclick="deleteCategory('${category.id}')">Delete</button>
       </div>
@@ -219,11 +219,23 @@ function displayProducts() {
 
 function filterProducts() {
   const searchTerm = document.getElementById('productSearch').value.toLowerCase();
-  const filtered = allProducts.filter(prod => 
-    prod.name.toLowerCase().includes(searchTerm) ||
-    prod.description.toLowerCase().includes(searchTerm) ||
-    prod.category_name.toLowerCase().includes(searchTerm)
-  );
+  const categoryFilter = document.getElementById('categoryFilter').value;
+  
+  let filtered = allProducts;
+  
+  // Filter by category if selected
+  if (categoryFilter) {
+    filtered = filtered.filter(prod => prod.category_id === categoryFilter);
+  }
+  
+  // Filter by search term
+  if (searchTerm) {
+    filtered = filtered.filter(prod => 
+      prod.name.toLowerCase().includes(searchTerm) ||
+      prod.description.toLowerCase().includes(searchTerm) ||
+      prod.category_name.toLowerCase().includes(searchTerm)
+    );
+  }
 
   const container = document.getElementById('products-list');
   if (filtered.length === 0) {
@@ -261,6 +273,45 @@ function updateCategoryDropdown() {
   const select = document.getElementById('productCategory');
   select.innerHTML = '<option value="">Select a category</option>' + 
     allCategories.map(cat => `<option value="${cat.id}">${escapeHtml(cat.name)}</option>`).join('');
+  
+  // Also update the category filter dropdown
+  const filterSelect = document.getElementById('categoryFilter');
+  if (filterSelect) {
+    const currentValue = filterSelect.value;
+    filterSelect.innerHTML = '<option value="">All Categories</option>' + 
+      allCategories.map(cat => `<option value="${cat.id}">${escapeHtml(cat.name)}</option>`).join('');
+    // Preserve the current selection if it still exists
+    if (currentValue && allCategories.some(cat => cat.id === currentValue)) {
+      filterSelect.value = currentValue;
+    }
+  }
+}
+
+// Navigate to Products tab with a specific category filter
+function navigateToProductsByCategory(categoryId) {
+  // Set the category filter
+  const filterSelect = document.getElementById('categoryFilter');
+  if (filterSelect) {
+    filterSelect.value = categoryId;
+  }
+  
+  // Switch to products tab
+  document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+  
+  document.getElementById('products-tab').classList.add('active');
+  // Find and activate the Products nav button
+  const navButtons = document.querySelectorAll('.nav-btn');
+  navButtons.forEach(btn => {
+    if (btn.textContent === 'Products') {
+      btn.classList.add('active');
+    }
+  });
+  
+  // Load products and apply filter
+  loadProducts().then(() => {
+    filterProducts();
+  });
 }
 
 function togglePackageQuantity() {

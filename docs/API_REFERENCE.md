@@ -162,11 +162,12 @@ Body:
 ```
 
 Note:
-- backend now automatically collects all orders where `state = Draft` and `order_type != mega_buy`
+- backend now automatically collects all orders where `state = Draft` and `order_type != mega_buy` and not already assigned to another Mega order
 - `source_order_ids` in request is optional and ignored for selection logic
+- one normal order can only belong to one Mega order
 
 Rules:
-- requires at least 2 draft normal orders in system
+- requires at least 2 draft normal orders in system that are not already assigned to another Mega order
 
 Response includes:
 - `order_type: "mega_buy"`
@@ -179,15 +180,18 @@ Recalculate Mega order quantities/items from all current draft normal orders.
 
 Rules:
 - supports `Draft` and `Delivered` Mega orders
-- if Mega is `Draft`: server re-selects all orders where `state = Draft` and `order_type != mega_buy`, and requires at least 2
+- if Mega is `Draft`: server re-selects all orders where `state = Draft` and `order_type != mega_buy` and not already assigned to another Mega order, and requires at least 2
 - if Mega is `Delivered`: server recalculates from its own `child_order_ids` and requires all child orders to be `Delivered`
 
 ### `POST /api/orders/:id/place`
 Place Mega order and lock all child orders.
 
+Note:
+- before placing, server automatically recalculates by re-selecting all Draft normal orders not assigned to another Mega order
+
 Rules:
 - only `Draft` Mega orders
-- child orders must exist and all must be `Draft`
+- requires at least 2 Draft normal orders not already assigned to another Mega order
 
 Effects:
 - Mega order: `state = Locked`, `placed_at` set
@@ -224,6 +228,29 @@ Response:
   "mega_order_id": "ord_mega",
   "child_order_ids": ["ord_a", "ord_b"],
   "state": "Delivered"
+}
+```
+
+### `POST /api/orders/:id/unlock` (Hidden)
+Unlock a Locked Mega order and return it and all child orders to Draft state.
+
+Rules:
+- only `Locked` Mega orders (cannot unlock Delivered, Closed, or Draft orders)
+- only Mega Buy orders (cannot unlock normal orders)
+- child orders must exist and all must be `Locked`
+
+Effects:
+- Mega order: `state = Draft`, `placed_at` cleared
+- Child orders: `state = Draft`, `locked_by_mega_order_id` and `locked_at` cleared
+
+Response:
+
+```json
+{
+  "message": "Mega Buy order unlocked successfully",
+  "mega_order_id": "ord_mega",
+  "child_order_ids": ["ord_a", "ord_b"],
+  "state": "Draft"
 }
 ```
 
