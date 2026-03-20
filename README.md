@@ -75,7 +75,6 @@ http://localhost:3100
 ```
 
 ---
-
 ## Core Features
 
 ### Categories
