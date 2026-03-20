@@ -292,6 +292,7 @@ body {
   gap: 6px;
   align-items: flex-start;
   min-width: 140px;
+  margin-bottom: 10px;
 }
 
 .price-badge {
@@ -323,6 +324,18 @@ body {
 
 .order-card {
   align-items: flex-start;
+}
+
+.order-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 5px;
+}
+
+.order-header h3 {
+  margin: 0;
 }
 
 .order-actions {
@@ -524,6 +537,8 @@ body {
   border-radius: 10px;
   width: 90%;
   max-width: max-content;
+  max-height: 90vh;
+  overflow-y: auto;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
 }
 
@@ -692,6 +707,7 @@ body {
   .card-actions {
     width: 100%;
     justify-content: flex-start;
+    flex-wrap: wrap;
   }
 
   .search-box input {
@@ -703,4 +719,23 @@ body {
     flex-direction: column;
     align-items: flex-start;
   }
+
+  .modal-content {
+    max-height: 85vh;
+    padding: 20px;
+  }
+}
+
+/* Add to Order Modal */
+.add-to-order-product-label {
+  margin-bottom: 20px;
+  padding: 10px 15px;
+  background: #f0f7ff;
+  border-radius: 5px;
+  color: #4a5568;
+  font-size: 14px;
+}
+
+.add-to-order-product-label strong {
+  color: #667eea;
 }
