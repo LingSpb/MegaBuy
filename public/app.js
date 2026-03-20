@@ -210,6 +210,7 @@ function displayProducts() {
         </div>
       </div>
       <div class="card-actions">
+        <button class="btn btn-primary" onclick="openAddToOrderModal('${product.id}')">Add to Order</button>
         <button class="btn btn-edit" onclick="editProduct('${product.id}')">Edit</button>
         <button class="btn btn-danger" onclick="deleteProduct('${product.id}')">Delete</button>
       </div>
@@ -262,6 +263,7 @@ function filterProducts() {
         </div>
       </div>
       <div class="card-actions">
+        <button class="btn btn-primary" onclick="openAddToOrderModal('${product.id}')">Add to Order</button>
         <button class="btn btn-edit" onclick="editProduct('${product.id}')">Edit</button>
         <button class="btn btn-danger" onclick="deleteProduct('${product.id}')">Delete</button>
       </div>
@@ -489,7 +491,11 @@ function renderOrderCard(order) {
   return `
     <div class="card order-card">
       <div class="card-content">
-        <h3>${escapeHtml(order.id)}</h3>
+        <div class="order-header">
+          <h3>${escapeHtml(order.id)}</h3>
+          <span class="state-badge ${getOrderStateClass(order.state)}">${escapeHtml(order.state)}</span>
+          ${order.order_type === 'mega_buy' ? `<span class="selling-type-badge">Mega Buy</span>` : ''}
+        </div>
         <p><strong>Person:</strong> ${escapeHtml(order.person_name)}</p>
         <p><strong>Date:</strong> ${escapeHtml(order.order_date)}</p>
         <p><strong>Items:</strong> ${order.items.length}</p>
@@ -498,8 +504,6 @@ function renderOrderCard(order) {
         <small>${formatOrderItemsSummary(order.items)}</small>
       </div>
       <div class="card-actions order-actions">
-        <span class="state-badge ${getOrderStateClass(order.state)}">${escapeHtml(order.state)}</span>
-        ${order.order_type === 'mega_buy' ? `<span class="selling-type-badge">Mega Buy</span>` : ''}
         ${canEditNormalOrder ? `<button class="btn btn-edit" onclick="editOrder('${order.id}')">Edit</button>` : ''}
         ${(order.state === 'Draft' || (order.order_type === 'mega_buy' && order.state === 'Closed')) ? `<button class="btn btn-danger" onclick="deleteOrder('${order.id}')">Delete</button>` : ''}
         ${(order.state === 'Draft' || order.state === 'Delivered') && order.order_type === 'mega_buy' ? `<button class="btn btn-dark" onclick="recalculateMegaBuyOrder('${order.id}')">Recalculate</button>` : ''}
@@ -975,6 +979,135 @@ async function deleteOrder(orderId) {
   }
 }
 
+// ==================== ADD TO ORDER ====================
+let addToOrderProductId = null;
+
+function getEditableOrders() {
+  // Return normal orders in Draft or Delivered state
+  return allOrders.filter(order => 
+    order.order_type !== 'mega_buy' && 
+    (order.state === 'Draft' || order.state === 'Delivered')
+  );
+}
+
+function openAddToOrderModal(productId) {
+  addToOrderProductId = productId;
+  const product = allProducts.find(p => p.id === productId);
+  const editableOrders = getEditableOrders();
+  
+  const modal = document.getElementById('addToOrderModal');
+  const contentContainer = document.getElementById('addToOrderContent');
+  const productNameEl = document.getElementById('addToOrderProductName');
+  
+  productNameEl.textContent = product ? product.name : 'Unknown Product';
+  
+  if (editableOrders.length === 0) {
+    // No editable orders - show message
+    contentContainer.innerHTML = `
+      <div class="empty-message">
+        <p>You need to create an order in the Orders tab before adding products.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeAddToOrderModal()">Close</button>
+      </div>
+    `;
+  } else {
+    // Show form to add product to an order
+    const units = product ? getProductUnits(product) : ['carton'];
+    contentContainer.innerHTML = `
+      <form onsubmit="addProductToOrderHandler(event)">
+        <div class="form-group">
+          <label for="addToOrderSelect">Select Order *</label>
+          <select id="addToOrderSelect" required>
+            <option value="">Select an order</option>
+            ${editableOrders.map(order => `
+              <option value="${order.id}">${escapeHtml(order.person_name)} (${order.state})</option>
+            `).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="addToOrderQuantity">Quantity *</label>
+          <input 
+            type="number" 
+            id="addToOrderQuantity" 
+            min="0.01" 
+            step="0.01" 
+            value="1" 
+            required
+          >
+        </div>
+        <div class="form-group">
+          <label for="addToOrderUnit">Unit *</label>
+          <select id="addToOrderUnit" required>
+            ${units.map(unit => `<option value="${unit}">${escapeHtml(unit)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeAddToOrderModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Add to Order</button>
+        </div>
+      </form>
+    `;
+  }
+  
+  modal.classList.add('show');
+}
+
+function closeAddToOrderModal() {
+  document.getElementById('addToOrderModal').classList.remove('show');
+  addToOrderProductId = null;
+}
+
+async function addProductToOrderHandler(event) {
+  event.preventDefault();
+  
+  const orderId = document.getElementById('addToOrderSelect').value;
+  const quantity = Number(document.getElementById('addToOrderQuantity').value);
+  const unit = document.getElementById('addToOrderUnit').value;
+  
+  if (!orderId || !addToOrderProductId || !quantity || quantity <= 0 || !unit) {
+    showToast('Please fill in all fields', 'error');
+    return;
+  }
+  
+  const order = allOrders.find(o => o.id === orderId);
+  if (!order) {
+    showToast('Order not found', 'error');
+    return;
+  }
+  
+  // Add the new item to the existing order items
+  const updatedItems = [...order.items, {
+    product_id: addToOrderProductId,
+    quantity: quantity,
+    unit: unit
+  }];
+  
+  try {
+    const response = await fetch(`/api/orders/${orderId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        person_name: order.person_name,
+        order_date: order.order_date,
+        items: updatedItems
+      })
+    });
+    
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to add product to order');
+    }
+    
+    const product = allProducts.find(p => p.id === addToOrderProductId);
+    showToast(`Added ${product ? product.name : 'product'} to ${order.person_name}'s order!`);
+    closeAddToOrderModal();
+    loadOrders();
+  } catch (error) {
+    showToast('Error: ' + error.message, 'error');
+  }
+}
+
 // ==================== UTILITY FUNCTIONS ====================
 function showToast(message, type = 'success') {
   const toast = document.getElementById('toast');
@@ -997,6 +1130,7 @@ window.onclick = (event) => {
   const categoryModal = document.getElementById('categoryModal');
   const productModal = document.getElementById('productModal');
   const orderModal = document.getElementById('orderModal');
+  const addToOrderModal = document.getElementById('addToOrderModal');
 
   if (event.target === categoryModal) {
     closeCategoryModal();
@@ -1006,5 +1140,8 @@ window.onclick = (event) => {
   }
   if (event.target === orderModal) {
     closeOrderModal();
+  }
+  if (event.target === addToOrderModal) {
+    closeAddToOrderModal();
   }
 };
