@@ -484,6 +484,60 @@ function formatOrderItemsSummary(items) {
     .join(' • ');
 }
 
+function formatMegaOrderProductsGrid(items) {
+  if (!Array.isArray(items) || items.length === 0) {
+    return '<div class="mega-products-empty">No products</div>';
+  }
+
+  const grouped = new Map();
+
+  items.forEach(item => {
+    const productKey = item.product_id || item.product_name || 'unknown-product';
+    const productName = item.product_name || 'Unknown product';
+    const unit = String(item.unit || 'unit').toLowerCase();
+    const quantity = Number(item.quantity) || 0;
+
+    // Look up product info from allProducts
+    const product = allProducts.find(p => p.id === item.product_id);
+
+    if (!grouped.has(productKey)) {
+      grouped.set(productKey, {
+        productName,
+        productId: item.product_id,
+        sellingType: product?.selling_type || 'unit',
+        packageQuantity: Number(product?.package_quantity) || 1,
+        units: new Map()
+      });
+    }
+
+    const productGroup = grouped.get(productKey);
+    productGroup.units.set(unit, (productGroup.units.get(unit) || 0) + quantity);
+  });
+
+  const productCards = Array.from(grouped.values()).map(group => {
+    const unitSummary = Array.from(group.units.entries())
+      .map(([unit, quantity]) => `${quantity} ${escapeHtml(unit)}`)
+      .join(', ');
+    
+    // Check if product is sold by package and has items below package quantity
+    let isBelowPackage = false;
+    if (group.sellingType === 'package') {
+      // Check if there's any non-carton unit with quantity less than package quantity
+      for (const [unit, quantity] of group.units.entries()) {
+        if (unit !== 'carton' && quantity < group.packageQuantity) {
+          isBelowPackage = true;
+          break;
+        }
+      }
+    }
+    
+    const highlightClass = isBelowPackage ? ' mega-product-item-warning' : '';
+    return `<div class="mega-product-item${highlightClass}">${escapeHtml(group.productName)}<span class="mega-product-qty">${unitSummary}</span></div>`;
+  });
+
+  return productCards.join('');
+}
+
 function renderOrderCard(order) {
   const childOrderIds = Array.isArray(order.child_order_ids) && order.child_order_ids.length > 0
     ? order.child_order_ids
@@ -492,28 +546,38 @@ function renderOrderCard(order) {
     order.state === 'Draft' || (order.state === 'Delivered' && Boolean(order.locked_by_mega_order_id))
   );
 
+  const isMegaBuy = order.order_type === 'mega_buy';
+
   return `
-    <div class="card order-card">
+    <div class="card order-card ${isMegaBuy ? 'mega-order-card' : ''}">
       <div class="card-content">
         <div class="order-header">
           <h3>${escapeHtml(order.id)}</h3>
           <span class="state-badge ${getOrderStateClass(order.state)}">${escapeHtml(order.state)}</span>
-          ${order.order_type === 'mega_buy' ? `<span class="selling-type-badge">Mega Buy</span>` : ''}
+          ${isMegaBuy ? `<span class="selling-type-badge">Mega Buy</span>` : ''}
         </div>
         <p><strong>Person:</strong> ${escapeHtml(order.person_name)}</p>
         <p><strong>Date:</strong> ${escapeHtml(order.order_date)}</p>
         <p><strong>Items:</strong> ${order.items.length}</p>
         <p><strong>Total:</strong> ${Number(order.total_amount || 0).toFixed(2)} kr</p>
-        ${order.order_type === 'mega_buy' ? `<p><strong>Child Orders:</strong> ${childOrderIds.map(id => escapeHtml(id)).join(', ') || 'N/A'}</p>` : ''}
-        <small>${formatOrderItemsSummary(order.items)}</small>
+        ${isMegaBuy ? `
+          <div class="mega-order-section">
+            <strong>Child Orders:</strong>
+            <div class="mega-child-orders">${childOrderIds.map(id => `<span class="child-order-tag">${escapeHtml(id)}</span>`).join('') || 'N/A'}</div>
+          </div>
+          <div class="mega-order-section">
+            <strong>Products:</strong>
+            <div class="mega-products-grid">${formatMegaOrderProductsGrid(order.items)}</div>
+          </div>
+        ` : `<small>${formatOrderItemsSummary(order.items)}</small>`}
       </div>
       <div class="card-actions order-actions">
         ${canEditNormalOrder ? `<button class="btn btn-edit" onclick="editOrder('${order.id}')">Edit</button>` : ''}
-        ${(order.state === 'Draft' || (order.order_type === 'mega_buy' && order.state === 'Closed')) ? `<button class="btn btn-danger" onclick="deleteOrder('${order.id}')">Delete</button>` : ''}
-        ${(order.state === 'Draft' || order.state === 'Delivered') && order.order_type === 'mega_buy' ? `<button class="btn btn-dark" onclick="recalculateMegaBuyOrder('${order.id}')">Recalculate</button>` : ''}
-        ${order.state === 'Draft' && order.order_type === 'mega_buy' ? `<button class="btn btn-primary" onclick="placeMegaBuyOrder('${order.id}')">Place Order</button>` : ''}
-        ${order.state === 'Locked' && order.order_type === 'mega_buy' ? `<button class="btn btn-primary" onclick="deliverMegaBuyOrder('${order.id}')">Deliver Order</button>` : ''}
-        ${order.state === 'Delivered' && order.order_type === 'mega_buy' ? `<button class="btn btn-primary" onclick="closeMegaBuyOrder('${order.id}')">Close Order</button>` : ''}
+        ${(order.state === 'Draft' || (isMegaBuy && order.state === 'Closed')) ? `<button class="btn btn-danger" onclick="deleteOrder('${order.id}')">Delete</button>` : ''}
+        ${(order.state === 'Draft' || order.state === 'Delivered') && isMegaBuy ? `<button class="btn btn-dark" onclick="recalculateMegaBuyOrder('${order.id}')">Recalculate</button>` : ''}
+        ${order.state === 'Draft' && isMegaBuy ? `<button class="btn btn-primary" onclick="placeMegaBuyOrder('${order.id}')">Place Order</button>` : ''}
+        ${order.state === 'Locked' && isMegaBuy ? `<button class="btn btn-primary" onclick="deliverMegaBuyOrder('${order.id}')">Deliver Order</button>` : ''}
+        ${order.state === 'Delivered' && isMegaBuy ? `<button class="btn btn-primary" onclick="closeMegaBuyOrder('${order.id}')">Close Order</button>` : ''}
       </div>
     </div>
   `;

@@ -392,6 +392,109 @@ body {
   color: #2d3748;
 }
 
+/* ==================== MEGA BUY ORDER CARD ==================== */
+.mega-order-card {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.mega-order-card .card-content {
+  width: 100%;
+}
+
+.mega-order-card .card-actions {
+  flex-direction: row;
+  margin-top: 12px;
+  justify-content: flex-start;
+  align-items: center;
+}
+
+.mega-order-section {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.mega-order-section strong {
+  display: block;
+  margin-bottom: 8px;
+  color: #4a5568;
+  font-size: 13px;
+}
+
+.mega-child-orders {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.child-order-tag {
+  background: #edf2f7;
+  color: #4a5568;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.mega-products-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+}
+
+.mega-product-item {
+  background: #f7fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mega-product-item-warning {
+  background: #fff5f5;
+  border-color: #fc8181;
+  border-width: 2px;
+}
+
+.mega-product-item-warning .mega-product-qty {
+  color: #c53030;
+}
+
+.mega-product-qty {
+  color: #667eea;
+  font-weight: 600;
+  font-size: 11px;
+}
+
+.mega-products-empty {
+  color: #a0aec0;
+  font-style: italic;
+  font-size: 12px;
+}
+
+/* Responsive: fewer columns on smaller screens */
+@media (max-width: 1200px) {
+  .mega-products-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .mega-products-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .mega-products-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 /* ==================== ARCHIVED ORDERS ==================== */
 .archived-section {
   margin-top: 24px;
