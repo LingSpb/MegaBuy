@@ -304,6 +304,27 @@
     </div>
   </div>
 
+  <!-- Product Details Modal -->
+  <div id="productDetailsModal" class="modal">
+    <div class="modal-content modal-content-sm">
+      <div class="modal-header">
+        <h3>Product Details</h3>
+        <button class="close-btn" onclick="closeProductDetailsModal()">&times;</button>
+      </div>
+      <div class="product-details-body">
+        <div class="product-details-info">
+          <span id="productDetailsInfo"></span>
+        </div>
+        <div class="product-details-section">
+          <strong>Orders: <span class="product-details-sum" id="productDetailsTotalSum"></span></strong>
+          <div id="productDetailsBreakdown" class="product-breakdown-list">
+            <!-- Breakdown will be dynamically generated -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notification -->
   <div id="toast" class="toast"></div>
 

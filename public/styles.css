@@ -458,6 +458,13 @@ body {
   background: #fff5f5;
   border-color: #fc8181;
   border-width: 2px;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.mega-product-item-warning:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(252, 129, 129, 0.3);
 }
 
 .mega-product-item-warning .mega-product-qty {
@@ -493,6 +500,67 @@ body {
   .mega-products-grid {
     grid-template-columns: repeat(2, 1fr);
   }
+}
+
+/* ==================== PRODUCT DETAILS MODAL ==================== */
+.modal-content-sm {
+  max-width: 500px;
+}
+
+.product-details-body {
+  padding: 20px;
+}
+
+.product-details-info {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 15px 20px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 20px;
+}
+
+.product-details-section {
+  margin-top: 15px;
+}
+
+.product-details-section strong {
+  display: block;
+  margin-bottom: 10px;
+  color: #4a5568;
+  font-size: 14px;
+}
+
+.product-details-sum {
+  color: #667eea;
+  font-weight: 700;
+  margin-left: 5px;
+}
+
+.product-breakdown-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.product-breakdown-item {
+  background: #edf2f7;
+  padding: 8px 14px;
+  border-radius: 20px;
+  font-size: 13px;
+  color: #4a5568;
+}
+
+.product-breakdown-item strong {
+  display: inline;
+  color: #2d3748;
+}
+
+.product-breakdown-empty {
+  color: #a0aec0;
+  font-style: italic;
+  font-size: 13px;
 }
 
 /* ==================== ARCHIVED ORDERS ==================== */

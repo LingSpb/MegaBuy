@@ -484,7 +484,7 @@ function formatOrderItemsSummary(items) {
     .join(' • ');
 }
 
-function formatMegaOrderProductsGrid(items) {
+function formatMegaOrderProductsGrid(items, megaOrderId) {
   if (!Array.isArray(items) || items.length === 0) {
     return '<div class="mega-products-empty">No products</div>';
   }
@@ -501,11 +501,17 @@ function formatMegaOrderProductsGrid(items) {
     const product = allProducts.find(p => p.id === item.product_id);
 
     if (!grouped.has(productKey)) {
+      // Prefer unit_label over package_unit (package_unit defaults to 'units' which is not meaningful)
+      const pkgUnit = product?.package_unit;
+      const unitLabel = product?.unit_label;
+      const displayUnit = unitLabel || (pkgUnit && pkgUnit !== 'units' && pkgUnit !== 'unit' ? pkgUnit : 'unit');
+      
       grouped.set(productKey, {
         productName,
         productId: item.product_id,
         sellingType: product?.selling_type || 'unit',
         packageQuantity: Number(product?.package_quantity) || 1,
+        packageUnit: displayUnit,
         units: new Map()
       });
     }
@@ -532,10 +538,80 @@ function formatMegaOrderProductsGrid(items) {
     }
     
     const highlightClass = isBelowPackage ? ' mega-product-item-warning' : '';
-    return `<div class="mega-product-item${highlightClass}">${escapeHtml(group.productName)}<span class="mega-product-qty">${unitSummary}</span></div>`;
+    const clickHandler = isBelowPackage ? ` onclick="showProductDetailsModal('${megaOrderId}', '${group.productId}')"` : '';
+    return `<div class="mega-product-item${highlightClass}"${clickHandler}>${escapeHtml(group.productName)}<span class="mega-product-qty">${unitSummary}</span></div>`;
   });
 
   return productCards.join('');
+}
+
+function showProductDetailsModal(megaOrderId, productId) {
+  const megaOrder = allOrders.find(o => o.id === megaOrderId);
+  const product = allProducts.find(p => p.id === productId);
+  
+  if (!megaOrder || !product) {
+    showToast('Could not find order or product details', 'error');
+    return;
+  }
+
+  // Get child order IDs
+  const childOrderIds = Array.isArray(megaOrder.child_order_ids) && megaOrder.child_order_ids.length > 0
+    ? megaOrder.child_order_ids
+    : (Array.isArray(megaOrder.source_order_ids) ? megaOrder.source_order_ids : []);
+
+  // Get child orders
+  const childOrders = allOrders.filter(o => childOrderIds.includes(o.id));
+
+  // Build product info string
+  // Prefer unit_label over package_unit (package_unit defaults to 'units' which is not meaningful)
+  const pkgUnit = product.package_unit;
+  const packageUnit = product.unit_label || (pkgUnit && pkgUnit !== 'units' && pkgUnit !== 'unit' ? pkgUnit : 'unit');
+  const packageQuantity = product.package_quantity || 1;
+  const productInfo = `${product.name}: carton × ${packageQuantity} ${packageUnit}`;
+
+  // Build breakdown by person and calculate total
+  const breakdown = [];
+  const totalByUnit = new Map();
+  
+  childOrders.forEach(order => {
+    const orderItems = order.items.filter(item => item.product_id === productId);
+    if (orderItems.length > 0) {
+      const personName = order.person_name;
+      const itemsSummary = orderItems.map(item => {
+        const qty = Number(item.quantity) || 0;
+        const unit = (item.unit || 'unit').toLowerCase();
+        // Add to total
+        totalByUnit.set(unit, (totalByUnit.get(unit) || 0) + qty);
+        return `${qty} ${unit}`;
+      }).join(', ');
+      breakdown.push({ personName, itemsSummary });
+    }
+  });
+
+  // Build total sum string
+  const totalSum = Array.from(totalByUnit.entries())
+    .map(([unit, qty]) => `${qty} ${unit}`)
+    .join(', ');
+
+  // Set modal content
+  document.getElementById('productDetailsInfo').textContent = productInfo;
+  document.getElementById('productDetailsTotalSum').textContent = totalSum || '0';
+  
+  const breakdownList = document.getElementById('productDetailsBreakdown');
+  if (breakdown.length > 0) {
+    breakdownList.innerHTML = breakdown
+      .map(b => `<span class="product-breakdown-item"><strong>${escapeHtml(b.personName)}</strong> (${escapeHtml(b.itemsSummary)})</span>`)
+      .join('');
+  } else {
+    breakdownList.innerHTML = '<span class="product-breakdown-empty">No orders found</span>';
+  }
+
+  // Show modal
+  document.getElementById('productDetailsModal').classList.add('show');
+}
+
+function closeProductDetailsModal() {
+  document.getElementById('productDetailsModal').classList.remove('show');
 }
 
 function renderOrderCard(order) {
@@ -567,7 +643,7 @@ function renderOrderCard(order) {
           </div>
           <div class="mega-order-section">
             <strong>Products:</strong>
-            <div class="mega-products-grid">${formatMegaOrderProductsGrid(order.items)}</div>
+            <div class="mega-products-grid">${formatMegaOrderProductsGrid(order.items, order.id)}</div>
           </div>
         ` : `<small>${formatOrderItemsSummary(order.items)}</small>`}
       </div>
@@ -609,7 +685,7 @@ function displayOrders() {
   const archivedOrders = allOrders.filter(o => o.order_type !== 'mega_buy' && o.state === 'Closed')
     .sort((a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at));
 
-  const sortedNormal = [...activeNormalOrders].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  const sortedNormal = [...activeNormalOrders].sort((a, b) => (Number(b.total_amount) || 0) - (Number(a.total_amount) || 0));
   const sortedMega = [...activeMegaOrders].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
   normalContainer.innerHTML = sortedNormal.length > 0
@@ -643,7 +719,7 @@ function filterOrders() {
     order.state.toLowerCase().includes(searchTerm);
 
   const normalMatches = allOrders.filter(o => o.order_type !== 'mega_buy' && o.state !== 'Closed' && matches(o))
-    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    .sort((a, b) => (Number(b.total_amount) || 0) - (Number(a.total_amount) || 0));
   const megaMatches = allOrders.filter(o => o.order_type === 'mega_buy' && matches(o))
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   const archivedMatches = allOrders.filter(o => o.order_type !== 'mega_buy' && o.state === 'Closed' && matches(o))
@@ -860,7 +936,12 @@ function addOrderItemRow(existingItem = null) {
     <button type="button" class="btn btn-danger" onclick="removeOrderItemRow(this)">Remove</button>
   `;
 
-  itemsContainer.appendChild(row);
+  // New items go to the top, existing items (when loading order) go to the bottom
+  if (existingItem) {
+    itemsContainer.appendChild(row);
+  } else {
+    itemsContainer.prepend(row);
+  }
 
   if (existingItem) {
     row.querySelector('.order-product').value = existingItem.product_id;
