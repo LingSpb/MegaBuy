@@ -563,6 +563,72 @@ body {
   font-size: 13px;
 }
 
+/* ==================== PLACE MEGA ORDER MODAL ==================== */
+.modal-content-md {
+  max-width: 600px;
+}
+
+.place-mega-order-body {
+  padding: 20px;
+}
+
+.place-mega-order-warning {
+  background: #fffbeb;
+  border: 1px solid #f6ad55;
+  border-radius: 8px;
+  padding: 15px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+
+.place-mega-order-warning .warning-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.place-mega-order-warning p {
+  margin: 0;
+  font-size: 14px;
+  color: #744210;
+  line-height: 1.5;
+}
+
+.place-mega-order-section {
+  margin-top: 15px;
+}
+
+.order-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.order-detail-header strong {
+  color: #4a5568;
+  font-size: 14px;
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.place-mega-order-details {
+  background: #f7fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 15px;
+  font-size: 13px;
+  color: #4a5568;
+  line-height: 1.6;
+  max-height: 200px;
+  overflow-y: auto;
+  user-select: text;
+}
+
 /* ==================== ARCHIVED ORDERS ==================== */
 .archived-section {
   margin-top: 24px;

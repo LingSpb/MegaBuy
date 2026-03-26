@@ -57,7 +57,6 @@ function displayCategories() {
       <div class="card-content">
         <h3>${escapeHtml(category.name)}</h3>
         <p>${escapeHtml(category.description || 'No description')}</p>
-        <small>Created: ${new Date(category.created_at).toLocaleDateString()}</small>
       </div>
       <div class="card-actions" onclick="event.stopPropagation()">
         <button class="btn btn-edit" onclick="editCategory('${category.id}')">Edit</button>
@@ -85,7 +84,6 @@ function filterCategories() {
       <div class="card-content">
         <h3>${escapeHtml(category.name)}</h3>
         <p>${escapeHtml(category.description || 'No description')}</p>
-        <small>Created: ${new Date(category.created_at).toLocaleDateString()}</small>
       </div>
       <div class="card-actions" onclick="event.stopPropagation()">
         <button class="btn btn-edit" onclick="editCategory('${category.id}')">Edit</button>
@@ -183,6 +181,36 @@ async function loadProducts() {
   }
 }
 
+function getProductDescription(product) {
+  // If product has a description, use it
+  if (product.description && product.description.trim()) {
+    return product.description;
+  }
+  
+  // Auto-generate description for package (carton) products
+  if (product.selling_type === 'package') {
+    const unitLabel = product.unit_label || 'unit';
+    const packageQuantity = product.package_quantity || 1;
+    // Prefer unit_label over package_unit (package_unit defaults to 'units' which is not meaningful)
+    const pkgUnit = product.package_unit;
+    const packageUnit = unitLabel || (pkgUnit && pkgUnit !== 'units' && pkgUnit !== 'unit' ? pkgUnit : 'units');
+    
+    // Calculate unit_price if not available (price / package_quantity)
+    let unitPrice = product.unit_price;
+    if (!unitPrice && product.price && packageQuantity > 0) {
+      unitPrice = Number((product.price / packageQuantity).toFixed(2));
+    }
+    
+    if (unitPrice) {
+      return `${unitPrice} kr/${unitLabel}. Sold by carton (${packageQuantity} ${packageUnit} per carton)`;
+    } else {
+      return `Sold by carton (${packageQuantity} ${packageUnit} per carton)`;
+    }
+  }
+  
+  return 'No description';
+}
+
 function displayProducts() {
   const container = document.getElementById('products-list');
 
@@ -197,8 +225,7 @@ function displayProducts() {
         <div class="card-content">
           <h3>${escapeHtml(product.name)}</h3>
           <p><strong>Category:</strong> ${escapeHtml(product.category_name)}</p>
-          <p>${escapeHtml(product.description || 'No description')}</p>
-          <small>Created: ${new Date(product.created_at).toLocaleDateString()}</small>
+          <p>${escapeHtml(getProductDescription(product))}</p>
         </div>
         <div>
           <span class="price-badge">${product.price} kr</span>
@@ -250,8 +277,7 @@ function filterProducts() {
         <div class="card-content">
           <h3>${escapeHtml(product.name)}</h3>
           <p><strong>Category:</strong> ${escapeHtml(product.category_name)}</p>
-          <p>${escapeHtml(product.description || 'No description')}</p>
-          <small>Created: ${new Date(product.created_at).toLocaleDateString()}</small>
+          <p>${escapeHtml(getProductDescription(product))}</p>
         </div>
         <div>
           <span class="price-badge">${product.price} kr</span>
@@ -374,8 +400,14 @@ async function saveProductHandler(event) {
   const description = document.getElementById('productDescription').value;
   const selling_type = document.getElementById('sellingType').value;
   const unit_label = document.getElementById('unitLabel').value.trim();
-  const price = document.getElementById('productPrice').value;
-  const package_quantity = document.getElementById('packageQuantity').value;
+  const price = parseFloat(document.getElementById('productPrice').value);
+  const package_quantity = parseInt(document.getElementById('packageQuantity').value) || 1;
+
+  // Calculate unit_price for package products (carton price / package quantity)
+  let unit_price = null;
+  if (selling_type === 'package' && package_quantity > 0) {
+    unit_price = Number((price / package_quantity).toFixed(2));
+  }
 
   try {
     const url = currentProductId ? `/api/products/${currentProductId}` : '/api/products';
@@ -390,8 +422,9 @@ async function saveProductHandler(event) {
         description,
         selling_type,
         unit_label,
-        price: parseFloat(price),
-        package_quantity: parseInt(package_quantity) || 1
+        price,
+        package_quantity,
+        unit_price
       })
     });
 
@@ -804,10 +837,81 @@ async function recalculateMegaBuyOrder(orderId) {
   }
 }
 
-async function placeMegaBuyOrder(orderId) {
-  if (!confirm('Place this Mega Buy order? This will lock this order and all child orders.')) {
+let pendingPlaceMegaOrderId = null;
+
+function placeMegaBuyOrder(orderId) {
+  const megaOrder = allOrders.find(o => o.id === orderId);
+  if (!megaOrder) {
+    showToast('Order not found', 'error');
     return;
   }
+
+  pendingPlaceMegaOrderId = orderId;
+
+  // Build product summary for the order details
+  const orderDetails = formatOrderDetailsForCopy(megaOrder.items);
+  document.getElementById('placeMegaOrderDetails').textContent = orderDetails;
+
+  // Show the modal
+  document.getElementById('placeMegaOrderModal').classList.add('show');
+}
+
+function formatOrderDetailsForCopy(items) {
+  if (!Array.isArray(items) || items.length === 0) {
+    return 'No products';
+  }
+
+  const grouped = new Map();
+
+  items.forEach(item => {
+    const productKey = item.product_id || item.product_name || 'unknown-product';
+    const productName = item.product_name || 'Unknown product';
+    const unit = String(item.unit || 'unit');
+    const quantity = Number(item.quantity) || 0;
+
+    if (!grouped.has(productKey)) {
+      grouped.set(productKey, {
+        productName,
+        units: new Map()
+      });
+    }
+
+    const productGroup = grouped.get(productKey);
+    productGroup.units.set(unit, (productGroup.units.get(unit) || 0) + quantity);
+  });
+
+  return Array.from(grouped.values())
+    .map(group => {
+      const unitSummary = Array.from(group.units.entries())
+        .map(([unit, quantity]) => `${quantity} ${unit}`)
+        .join(', ');
+      return `${group.productName} (${unitSummary})`;
+    })
+    .join(' • ');
+}
+
+function closePlaceMegaOrderModal() {
+  document.getElementById('placeMegaOrderModal').classList.remove('show');
+  pendingPlaceMegaOrderId = null;
+}
+
+function copyOrderDetails() {
+  const orderDetails = document.getElementById('placeMegaOrderDetails').textContent;
+  navigator.clipboard.writeText(orderDetails).then(() => {
+    showToast('Order details copied to clipboard!');
+  }).catch(() => {
+    showToast('Failed to copy to clipboard', 'error');
+  });
+}
+
+async function confirmPlaceMegaBuyOrder() {
+  if (!pendingPlaceMegaOrderId) {
+    showToast('No order selected', 'error');
+    return;
+  }
+
+  const orderId = pendingPlaceMegaOrderId;
+  closePlaceMegaOrderModal();
 
   try {
     const response = await fetch(`/api/orders/${orderId}/place`, {

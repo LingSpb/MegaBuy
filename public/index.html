@@ -325,6 +325,33 @@
     </div>
   </div>
 
+  <!-- Place Mega Order Confirmation Modal -->
+  <div id="placeMegaOrderModal" class="modal">
+    <div class="modal-content modal-content-md">
+      <div class="modal-header">
+        <h3>Place Mega Buy Order</h3>
+        <button class="close-btn" onclick="closePlaceMegaOrderModal()">&times;</button>
+      </div>
+      <div class="place-mega-order-body">
+        <div class="place-mega-order-warning">
+          <span class="warning-icon">⚠️</span>
+          <p>Once mega order is placed to store, normal orders will be locked and cannot be edited anymore, but they can be edited again after delivery to update with actual quantity and price.</p>
+        </div>
+        <div class="place-mega-order-section">
+          <div class="order-detail-header">
+            <strong>Order Details:</strong>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="copyOrderDetails()">📋 Copy</button>
+          </div>
+          <div id="placeMegaOrderDetails" class="place-mega-order-details"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closePlaceMegaOrderModal()">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="confirmPlaceMegaBuyOrder()">Place Order</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notification -->
   <div id="toast" class="toast"></div>
 
