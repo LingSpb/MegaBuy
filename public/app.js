@@ -174,7 +174,7 @@ async function loadProducts() {
     const response = await fetch('/api/products');
     if (!response.ok) throw new Error('Failed to load products');
     allProducts = await response.json();
-    displayProducts();
+    filterProducts();
     renderOrderProductOptions();
   } catch (error) {
     showToast('Error loading products: ' + error.message, 'error');
