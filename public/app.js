@@ -570,9 +570,10 @@ function formatMegaOrderProductsGrid(items, megaOrderId) {
       }
     }
     
+    // Highlight only carton products below package quantity, but make all products clickable
     const highlightClass = isBelowPackage ? ' mega-product-item-warning' : '';
-    const clickHandler = isBelowPackage ? ` onclick="showProductDetailsModal('${megaOrderId}', '${group.productId}')"` : '';
-    return `<div class="mega-product-item${highlightClass}"${clickHandler}>${escapeHtml(group.productName)}<span class="mega-product-qty">${unitSummary}</span></div>`;
+    const clickHandler = ` onclick="showProductDetailsModal('${megaOrderId}', '${group.productId}')"`;
+    return `<div class="mega-product-item mega-product-item-clickable${highlightClass}"${clickHandler}>${escapeHtml(group.productName)}<span class="mega-product-qty">${unitSummary}</span></div>`;
   });
 
   return productCards.join('');
@@ -595,12 +596,15 @@ function showProductDetailsModal(megaOrderId, productId) {
   // Get child orders
   const childOrders = allOrders.filter(o => childOrderIds.includes(o.id));
 
-  // Build product info string
+  // Build product info string based on selling type
   // Prefer unit_label over package_unit (package_unit defaults to 'units' which is not meaningful)
   const pkgUnit = product.package_unit;
   const packageUnit = product.unit_label || (pkgUnit && pkgUnit !== 'units' && pkgUnit !== 'unit' ? pkgUnit : 'unit');
   const packageQuantity = product.package_quantity || 1;
-  const productInfo = `${product.name}: carton × ${packageQuantity} ${packageUnit}`;
+  const isPackageProduct = product.selling_type === 'package';
+  const productInfoText = isPackageProduct 
+    ? `${product.name}: carton × ${packageQuantity} ${packageUnit}`
+    : product.name;
 
   // Build breakdown by person and calculate total
   const breakdown = [];
@@ -610,6 +614,7 @@ function showProductDetailsModal(megaOrderId, productId) {
     const orderItems = order.items.filter(item => item.product_id === productId);
     if (orderItems.length > 0) {
       const personName = order.person_name;
+      const orderId = order.id;
       const itemsSummary = orderItems.map(item => {
         const qty = Number(item.quantity) || 0;
         const unit = (item.unit || 'unit').toLowerCase();
@@ -617,7 +622,7 @@ function showProductDetailsModal(megaOrderId, productId) {
         totalByUnit.set(unit, (totalByUnit.get(unit) || 0) + qty);
         return `${qty} ${unit}`;
       }).join(', ');
-      breakdown.push({ personName, itemsSummary });
+      breakdown.push({ personName, orderId, itemsSummary });
     }
   });
 
@@ -626,14 +631,15 @@ function showProductDetailsModal(megaOrderId, productId) {
     .map(([unit, qty]) => `${qty} ${unit}`)
     .join(', ');
 
-  // Set modal content
-  document.getElementById('productDetailsInfo').textContent = productInfo;
+  // Set modal content - make product info clickable
+  const productInfoEl = document.getElementById('productDetailsInfo');
+  productInfoEl.innerHTML = `<a href="#" class="product-details-link" onclick="navigateToProduct('${productId}'); return false;">${escapeHtml(productInfoText)}</a>`;
   document.getElementById('productDetailsTotalSum').textContent = totalSum || '0';
   
   const breakdownList = document.getElementById('productDetailsBreakdown');
   if (breakdown.length > 0) {
     breakdownList.innerHTML = breakdown
-      .map(b => `<span class="product-breakdown-item"><strong>${escapeHtml(b.personName)}</strong> (${escapeHtml(b.itemsSummary)})</span>`)
+      .map(b => `<span class="product-breakdown-item"><a href="#" class="product-breakdown-link" onclick="navigateToOrder('${b.orderId}'); return false;"><strong>${escapeHtml(b.personName)}</strong> (${escapeHtml(b.itemsSummary)})</a></span>`)
       .join('');
   } else {
     breakdownList.innerHTML = '<span class="product-breakdown-empty">No orders found</span>';
@@ -641,6 +647,89 @@ function showProductDetailsModal(megaOrderId, productId) {
 
   // Show modal
   document.getElementById('productDetailsModal').classList.add('show');
+}
+
+// Navigate to Products tab and highlight a specific product
+function navigateToProduct(productId) {
+  closeProductDetailsModal();
+  
+  // Switch to products tab
+  document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+  
+  document.getElementById('products-tab').classList.add('active');
+  const navButtons = document.querySelectorAll('.nav-btn');
+  navButtons.forEach(btn => {
+    if (btn.textContent === 'Products') {
+      btn.classList.add('active');
+    }
+  });
+  
+  // Clear filters to ensure product is visible
+  document.getElementById('productSearch').value = '';
+  document.getElementById('categoryFilter').value = '';
+  
+  // Load products and then scroll to the specific product
+  loadProducts().then(() => {
+    // Find and highlight the product card
+    setTimeout(() => {
+      const productCards = document.querySelectorAll('#products-list .card');
+      for (const card of productCards) {
+        const editBtn = card.querySelector('.btn-edit[onclick*="' + productId + '"]');
+        if (editBtn) {
+          card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          card.classList.add('card-highlight');
+          setTimeout(() => card.classList.remove('card-highlight'), 2000);
+          break;
+        }
+      }
+    }, 100);
+  });
+}
+
+// Navigate to Orders tab and highlight a specific order
+function navigateToOrder(orderId) {
+  closeProductDetailsModal();
+  
+  // Switch to orders tab
+  document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+  
+  document.getElementById('orders-tab').classList.add('active');
+  const navButtons = document.querySelectorAll('.nav-btn');
+  navButtons.forEach(btn => {
+    if (btn.textContent === 'Orders') {
+      btn.classList.add('active');
+    }
+  });
+  
+  // Clear search filter
+  document.getElementById('orderSearch').value = '';
+  
+  // Load orders and then scroll to the specific order
+  loadOrders().then(() => {
+    setTimeout(() => {
+      // Look in normal orders, mega orders, and archived sections
+      const allOrderCards = document.querySelectorAll('.order-card');
+      for (const card of allOrderCards) {
+        const header = card.querySelector('h3');
+        if (header && header.textContent === orderId) {
+          // If in archived section, expand it first
+          const archivedList = document.getElementById('archived-orders-list');
+          if (archivedList && archivedList.contains(card)) {
+            archivedList.style.display = 'grid';
+            const icon = document.getElementById('archived-toggle-icon');
+            if (icon) icon.textContent = '▼';
+          }
+          
+          card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          card.classList.add('card-highlight');
+          setTimeout(() => card.classList.remove('card-highlight'), 2000);
+          break;
+        }
+      }
+    }, 100);
+  });
 }
 
 function closeProductDetailsModal() {
