@@ -1172,6 +1172,22 @@ function updateOrderTotal() {
   document.getElementById('orderTotalValue').textContent = `${total.toFixed(2)} kr`;
 }
 
+function aggregateOrderItems(items) {
+  // Aggregate items with the same product_id and unit
+  const aggregated = new Map();
+  
+  items.forEach(item => {
+    const key = `${item.product_id}|${item.unit}`;
+    if (aggregated.has(key)) {
+      aggregated.get(key).quantity += item.quantity;
+    } else {
+      aggregated.set(key, { ...item });
+    }
+  });
+  
+  return Array.from(aggregated.values());
+}
+
 async function saveOrderHandler(event) {
   event.preventDefault();
 
@@ -1179,7 +1195,7 @@ async function saveOrderHandler(event) {
   const orderDate = document.getElementById('orderDate').value;
   const rows = Array.from(document.querySelectorAll('.order-item-row'));
 
-  const items = rows.map(row => ({
+  const rawItems = rows.map(row => ({
     product_id: row.querySelector('.order-product').value,
     quantity: Number(row.querySelector('.order-qty').value),
     unit: row.querySelector('.order-unit').value
@@ -1190,10 +1206,13 @@ async function saveOrderHandler(event) {
     return;
   }
 
-  if (items.some(item => !item.product_id || !item.unit || !item.quantity || item.quantity <= 0)) {
+  if (rawItems.some(item => !item.product_id || !item.unit || !item.quantity || item.quantity <= 0)) {
     showToast('Each order item must have product, quantity and unit', 'error');
     return;
   }
+
+  // Aggregate items with the same product and unit
+  const items = aggregateOrderItems(rawItems);
 
   try {
     const isEditMode = Boolean(currentOrderId);
@@ -1345,12 +1364,15 @@ async function addProductToOrderHandler(event) {
     return;
   }
   
-  // Add the new item to the existing order items
-  const updatedItems = [...order.items, {
+  // Add the new item to the top of the existing order items
+  const rawItems = [{
     product_id: addToOrderProductId,
     quantity: quantity,
     unit: unit
-  }];
+  }, ...order.items];
+  
+  // Aggregate items with the same product and unit
+  const updatedItems = aggregateOrderItems(rawItems);
   
   try {
     const response = await fetch(`/api/orders/${orderId}`, {
