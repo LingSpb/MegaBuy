@@ -190,8 +190,11 @@ function aggregateMegaBuyItems(products, sourceOrders) {
         }
       });
 
+      // Round totalSmallUnits to 2 decimal places to avoid floating-point precision issues
+      totalSmallUnits = Number(totalSmallUnits.toFixed(2));
       const cartonCount = Math.floor(totalSmallUnits / cartonSize);
-      const remainder = totalSmallUnits % cartonSize;
+      // Round remainder to 2 decimal places to avoid floating-point precision issues
+      const remainder = Number((totalSmallUnits % cartonSize).toFixed(2));
 
       if (cartonCount > 0) {
         const unitPrice = getProductUnitPrice(product, 'carton');
@@ -233,7 +236,8 @@ function aggregateMegaBuyItems(products, sourceOrders) {
     sourceItems.forEach(item => {
       const unitKey = toSingularUnit(item.unit) || 'unit';
       const quantity = Number(item.quantity) || 0;
-      perUnit.set(unitKey, (perUnit.get(unitKey) || 0) + quantity);
+      // Round to 2 decimal places to avoid floating-point precision issues
+      perUnit.set(unitKey, Number(((perUnit.get(unitKey) || 0) + quantity).toFixed(2)));
     });
 
     for (const [unitKey, quantity] of perUnit.entries()) {

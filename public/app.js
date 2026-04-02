@@ -504,7 +504,8 @@ function formatOrderItemsSummary(items) {
     }
 
     const productGroup = grouped.get(productKey);
-    productGroup.units.set(unit, (productGroup.units.get(unit) || 0) + quantity);
+    // Round to 2 decimal places to avoid floating-point precision issues
+    productGroup.units.set(unit, Number(((productGroup.units.get(unit) || 0) + quantity).toFixed(2)));
   });
 
   return Array.from(grouped.values())
@@ -550,7 +551,8 @@ function formatMegaOrderProductsGrid(items, megaOrderId) {
     }
 
     const productGroup = grouped.get(productKey);
-    productGroup.units.set(unit, (productGroup.units.get(unit) || 0) + quantity);
+    // Round to 2 decimal places to avoid floating-point precision issues
+    productGroup.units.set(unit, Number(((productGroup.units.get(unit) || 0) + quantity).toFixed(2)));
   });
 
   const productCards = Array.from(grouped.values()).map(group => {
@@ -618,8 +620,8 @@ function showProductDetailsModal(megaOrderId, productId) {
       const itemsSummary = orderItems.map(item => {
         const qty = Number(item.quantity) || 0;
         const unit = (item.unit || 'unit').toLowerCase();
-        // Add to total
-        totalByUnit.set(unit, (totalByUnit.get(unit) || 0) + qty);
+        // Add to total - round to 2 decimal places to avoid floating-point precision issues
+        totalByUnit.set(unit, Number(((totalByUnit.get(unit) || 0) + qty).toFixed(2)));
         return `${qty} ${unit}`;
       }).join(', ');
       breakdown.push({ personName, orderId, itemsSummary });
@@ -966,7 +968,8 @@ function formatOrderDetailsForCopy(items) {
     }
 
     const productGroup = grouped.get(productKey);
-    productGroup.units.set(unit, (productGroup.units.get(unit) || 0) + quantity);
+    // Round to 2 decimal places to avoid floating-point precision issues
+    productGroup.units.set(unit, Number(((productGroup.units.get(unit) || 0) + quantity).toFixed(2)));
   });
 
   return Array.from(grouped.values())
