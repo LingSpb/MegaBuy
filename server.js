@@ -1306,7 +1306,8 @@ app.post('/api/orders/:id/deliver', async (req, res) => {
         .from('orders')
         .update({
           state: 'Delivered',
-          updated_at: now
+          updated_at: now,
+          delivered_at: now
         })
         .eq('id', childOrder.id);
 
@@ -1319,7 +1320,8 @@ app.post('/api/orders/:id/deliver', async (req, res) => {
         state: 'Delivered',
         child_order_ids: childOrderIds,
         source_order_ids: childOrderIds,
-        updated_at: now
+        updated_at: now,
+        delivered_at: now
       })
       .eq('id', req.params.id);
 

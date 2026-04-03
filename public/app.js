@@ -757,10 +757,11 @@ function renderOrderCard(order) {
           ${isMegaBuy ? `<span class="selling-type-badge">Mega Buy</span>` : ''}
         </div>
         <p><strong>Person:</strong> ${escapeHtml(order.person_name)}</p>
-        <p><strong>Date:</strong> ${escapeHtml(order.order_date)}</p>
+        <p><strong>Updated:</strong> ${escapeHtml(formatOrderDate(order.updated_at || order.order_date))}</p>
         <p><strong>Items:</strong> ${order.items.length}</p>
         <p><strong>Total:</strong> ${Number(order.total_amount || 0).toFixed(2)} kr</p>
         ${isMegaBuy ? `
+          ${order.delivered_at ? `<p><strong>Delivered:</strong> ${escapeHtml(formatOrderDate(order.delivered_at))}</p>` : ''}
           <div class="mega-order-section">
             <strong>Child Orders:</strong>
             <div class="mega-child-orders">${childOrderIds.map(id => `<span class="child-order-tag">${escapeHtml(id)}</span>`).join('') || 'N/A'}</div>
@@ -1506,6 +1507,15 @@ function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
+}
+
+function formatOrderDate(dateString) {
+  if (!dateString) return 'N/A';
+  const date = new Date(dateString);
+  const datePart = date.toISOString().split('T')[0];
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${datePart} ${hours}:${minutes}`;
 }
 
 // Close modals when clicking outside
