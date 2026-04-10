@@ -57,6 +57,7 @@ function displayCategories() {
       <div class="card-content">
         <h3>${escapeHtml(category.name)}</h3>
         <p>${escapeHtml(category.description || 'No description')}</p>
+        <p class="vat-info">VAT: ${category.vat != null ? category.vat : 6}%</p>
       </div>
       <div class="card-actions" onclick="event.stopPropagation()">
         <button class="btn btn-edit" onclick="editCategory('${category.id}')">Edit</button>
@@ -84,6 +85,7 @@ function filterCategories() {
       <div class="card-content">
         <h3>${escapeHtml(category.name)}</h3>
         <p>${escapeHtml(category.description || 'No description')}</p>
+        <p class="vat-info">VAT: ${category.vat != null ? category.vat : 6}%</p>
       </div>
       <div class="card-actions" onclick="event.stopPropagation()">
         <button class="btn btn-edit" onclick="editCategory('${category.id}')">Edit</button>
@@ -98,6 +100,7 @@ function openCategoryModal() {
   document.getElementById('categoryModalTitle').textContent = 'Add New Category';
   document.getElementById('categoryName').value = '';
   document.getElementById('categoryDescription').value = '';
+  document.getElementById('categoryVat').value = '6';
   document.getElementById('categoryModal').classList.add('show');
 }
 
@@ -114,6 +117,7 @@ function editCategory(categoryId) {
   document.getElementById('categoryModalTitle').textContent = 'Edit Category';
   document.getElementById('categoryName').value = category.name;
   document.getElementById('categoryDescription').value = category.description;
+  document.getElementById('categoryVat').value = category.vat != null ? category.vat : 6;
   document.getElementById('categoryModal').classList.add('show');
 }
 
@@ -122,6 +126,7 @@ async function saveCategoryHandler(event) {
 
   const name = document.getElementById('categoryName').value;
   const description = document.getElementById('categoryDescription').value;
+  const vat = document.getElementById('categoryVat').value;
 
   try {
     const url = currentCategoryId ? `/api/categories/${currentCategoryId}` : '/api/categories';
@@ -130,7 +135,7 @@ async function saveCategoryHandler(event) {
     const response = await fetch(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, description })
+      body: JSON.stringify({ name, description, vat: vat !== '' ? Number(vat) : 6 })
     });
 
     const data = await response.json();
@@ -169,6 +174,30 @@ async function deleteCategory(categoryId) {
 }
 
 // ==================== PRODUCTS ====================
+
+function getCategoryVat(categoryId) {
+  const category = allCategories.find(c => c.id === categoryId);
+  return category && category.vat != null ? category.vat : 6;
+}
+
+function calculatePriceWithVat(price, vatPercent) {
+  return Number((price * (1 + vatPercent / 100)).toFixed(2));
+}
+
+function calculateOrderTotalWithVat(order) {
+  if (!order || !Array.isArray(order.items)) return 0;
+  
+  let totalWithVat = 0;
+  order.items.forEach(item => {
+    const product = allProducts.find(p => p.id === item.product_id);
+    const vat = product ? getCategoryVat(product.category_id) : 6;
+    const lineTotal = Number(item.line_total) || 0;
+    totalWithVat += calculatePriceWithVat(lineTotal, vat);
+  });
+  
+  return Number(totalWithVat.toFixed(2));
+}
+
 async function loadProducts() {
   try {
     const response = await fetch('/api/products');
@@ -219,7 +248,14 @@ function displayProducts() {
     return;
   }
 
-  container.innerHTML = allProducts.map(product => `
+  container.innerHTML = allProducts.map(product => {
+    const vat = getCategoryVat(product.category_id);
+    const isPackage = product.selling_type === 'package';
+    // For unit products, use product.price; for package products, use unit_price
+    const displayPrice = isPackage ? product.unit_price : product.price;
+    const displayPriceWithVat = displayPrice ? calculatePriceWithVat(displayPrice, vat) : null;
+    
+    return `
     <div class="card">
       <div class="product-info">
         <div class="card-content">
@@ -228,12 +264,12 @@ function displayProducts() {
           <p>${escapeHtml(getProductDescription(product))}</p>
         </div>
         <div>
-          <span class="price-badge">${product.price} kr</span>
-          ${product.selling_type === 'package'
+          ${isPackage
             ? `<span class="selling-type-badge">Carton × ${product.package_quantity} ${product.unit_label || product.package_unit || 'units'}</span>`
             : `<span class="selling-type-badge">Per ${product.unit_label}</span>`
           }
-          ${product.unit_price ? `<span class="unit-price-badge">${product.unit_price} kr/${product.unit_label}</span>` : ''}
+          ${displayPrice ? `<span class="unit-price-badge">${displayPrice} kr/${product.unit_label}</span>` : ''}
+          ${displayPriceWithVat ? `<span class="unit-price-vat-badge">${displayPriceWithVat} kr/${product.unit_label} incl. VAT</span>` : ''}
         </div>
       </div>
       <div class="card-actions">
@@ -242,7 +278,8 @@ function displayProducts() {
         <button class="btn btn-danger" onclick="deleteProduct('${product.id}')">Delete</button>
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
 }
 
 function filterProducts() {
@@ -271,7 +308,14 @@ function filterProducts() {
     return;
   }
 
-  container.innerHTML = filtered.map(product => `
+  container.innerHTML = filtered.map(product => {
+    const vat = getCategoryVat(product.category_id);
+    const isPackage = product.selling_type === 'package';
+    // For unit products, use product.price; for package products, use unit_price
+    const displayPrice = isPackage ? product.unit_price : product.price;
+    const displayPriceWithVat = displayPrice ? calculatePriceWithVat(displayPrice, vat) : null;
+    
+    return `
     <div class="card">
       <div class="product-info">
         <div class="card-content">
@@ -280,12 +324,12 @@ function filterProducts() {
           <p>${escapeHtml(getProductDescription(product))}</p>
         </div>
         <div>
-          <span class="price-badge">${product.price} kr</span>
-          ${product.selling_type === 'package'
+          ${isPackage
             ? `<span class="selling-type-badge">Carton × ${product.package_quantity} ${product.unit_label || product.package_unit || 'units'}</span>`
             : `<span class="selling-type-badge">Per ${product.unit_label}</span>`
           }
-          ${product.unit_price ? `<span class="unit-price-badge">${product.unit_price} kr/${product.unit_label}</span>` : ''}
+          ${displayPrice ? `<span class="unit-price-badge">${displayPrice} kr/${product.unit_label}</span>` : ''}
+          ${displayPriceWithVat ? `<span class="unit-price-vat-badge">${displayPriceWithVat} kr/${product.unit_label} incl. VAT</span>` : ''}
         </div>
       </div>
       <div class="card-actions">
@@ -294,7 +338,8 @@ function filterProducts() {
         <button class="btn btn-danger" onclick="deleteProduct('${product.id}')">Delete</button>
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
 }
 
 function updateCategoryDropdown() {
@@ -386,7 +431,14 @@ function editProduct(productId) {
   document.getElementById('productDescription').value = product.description;
   document.getElementById('sellingType').value = product.selling_type;
   document.getElementById('unitLabel').value = product.unit_label || '';
-  document.getElementById('productPrice').value = product.price;
+  
+  // Display unit price in the form (for package products, use stored unit_price or calculate from carton price)
+  let displayPrice = product.price;
+  if (product.selling_type === 'package') {
+    displayPrice = product.unit_price || (product.package_quantity > 0 ? Number((product.price / product.package_quantity).toFixed(2)) : product.price);
+  }
+  document.getElementById('productPrice').value = displayPrice;
+  
   document.getElementById('packageQuantity').value = product.package_quantity;
   togglePackageQuantity();
   document.getElementById('productModal').classList.add('show');
@@ -400,13 +452,17 @@ async function saveProductHandler(event) {
   const description = document.getElementById('productDescription').value;
   const selling_type = document.getElementById('sellingType').value;
   const unit_label = document.getElementById('unitLabel').value.trim();
-  const price = parseFloat(document.getElementById('productPrice').value);
-  const package_quantity = parseInt(document.getElementById('packageQuantity').value) || 1;
+  const inputPrice = parseFloat(document.getElementById('productPrice').value);
+  const package_quantity = parseFloat(document.getElementById('packageQuantity').value) || 1;
 
-  // Calculate unit_price for package products (carton price / package quantity)
-  let unit_price = null;
+  // Input price is always unit price
+  // For package products, calculate carton price (unit_price * package_quantity)
+  let price = inputPrice;
+  let unit_price = inputPrice;
   if (selling_type === 'package' && package_quantity > 0) {
-    unit_price = Number((price / package_quantity).toFixed(2));
+    price = Number((inputPrice * package_quantity).toFixed(2)); // carton price
+  } else {
+    unit_price = null; // unit products don't need separate unit_price
   }
 
   try {
@@ -747,6 +803,8 @@ function renderOrderCard(order) {
   );
 
   const isMegaBuy = order.order_type === 'mega_buy';
+  const totalAmount = Number(order.total_amount || 0);
+  const totalWithVat = calculateOrderTotalWithVat(order);
 
   return `
     <div class="card order-card ${isMegaBuy ? 'mega-order-card' : ''}">
@@ -759,7 +817,7 @@ function renderOrderCard(order) {
         <p><strong>Person:</strong> ${escapeHtml(order.person_name)}</p>
         <p><strong>Updated:</strong> ${escapeHtml(formatOrderDate(order.updated_at || order.order_date))}</p>
         <p><strong>Items:</strong> ${order.items.length}</p>
-        <p><strong>Total:</strong> ${Number(order.total_amount || 0).toFixed(2)} kr</p>
+        <p><strong>Total:</strong> ${totalAmount.toFixed(2)} kr <span class="total-vat-text">(${totalWithVat.toFixed(2)} kr incl. VAT)</span></p>
         ${isMegaBuy ? `
           ${order.delivered_at ? `<p><strong>Delivered:</strong> ${escapeHtml(formatOrderDate(order.delivered_at))}</p>` : ''}
           <div class="mega-order-section">
@@ -779,6 +837,7 @@ function renderOrderCard(order) {
         ${order.state === 'Draft' && isMegaBuy ? `<button class="btn btn-primary" onclick="placeMegaBuyOrder('${order.id}')">Place Order</button>` : ''}
         ${order.state === 'Locked' && isMegaBuy ? `<button class="btn btn-primary" onclick="deliverMegaBuyOrder('${order.id}')">Deliver Order</button>` : ''}
         ${order.state === 'Delivered' && isMegaBuy ? `<button class="btn btn-primary" onclick="closeMegaBuyOrder('${order.id}')">Close Order</button>` : ''}
+        ${isMegaBuy ? `<button class="btn btn-secondary" onclick="printMegaOrderInvoice('${order.id}')">Print Invoice</button>` : ''}
       </div>
     </div>
   `;
@@ -1065,6 +1124,227 @@ async function closeMegaBuyOrder(orderId) {
   } catch (error) {
     showToast('Error: ' + error.message, 'error');
   }
+}
+
+async function printMegaOrderInvoice(orderId) {
+  // Always recalculate the mega order before printing to ensure latest data
+  try {
+    const recalcResponse = await fetch(`/api/orders/${orderId}/recalculate`, {
+      method: 'POST'
+    });
+
+    if (!recalcResponse.ok) {
+      const errorData = await recalcResponse.json();
+      throw new Error(errorData.error || 'Failed to recalculate order before printing');
+    }
+
+    // Reload orders to get the updated data
+    const ordersResponse = await fetch('/api/orders');
+    if (ordersResponse.ok) {
+      allOrders = await ordersResponse.json();
+    }
+  } catch (error) {
+    showToast('Warning: Could not recalculate order - ' + error.message, 'error');
+  }
+
+  const megaOrder = allOrders.find(o => o.id === orderId);
+  if (!megaOrder) {
+    showToast('Could not find order', 'error');
+    return;
+  }
+
+  // Group items by product and convert to small units
+  const productGroups = new Map();
+
+  megaOrder.items.forEach(item => {
+    const productKey = item.product_id || item.product_name || 'unknown';
+    const product = allProducts.find(p => p.id === item.product_id);
+    const productName = item.product_name || product?.name || 'Unknown Product';
+    const unit = String(item.unit || 'unit').toLowerCase();
+    const quantity = Number(item.quantity) || 0;
+    
+    // Get product details
+    const packageQuantity = Number(product?.package_quantity) || 1;
+    const unitLabel = product?.unit_label || 'unit';
+    const isPackageProduct = product?.selling_type === 'package';
+    const categoryId = product?.category_id;
+    const vat = getCategoryVat(categoryId);
+    
+    // Get unit price (price per small unit, not carton)
+    let unitPrice = Number(product?.unit_price) || 0;
+    if (!unitPrice && product) {
+      // Calculate unit price from carton price
+      unitPrice = Number(product.price) / packageQuantity || 0;
+    }
+    // Fallback to item's unit_price if product not found
+    if (!unitPrice) {
+      unitPrice = Number(item.unit_price) || 0;
+    }
+
+    // Convert carton to small units
+    let smallUnitQuantity = quantity;
+    let displayUnit = unit;
+    
+    if (unit === 'carton' && isPackageProduct) {
+      // Convert carton to small units
+      smallUnitQuantity = quantity * packageQuantity;
+      displayUnit = unitLabel;
+    } else if (isPackageProduct && unit !== unitLabel) {
+      // If it's a different unit, keep as is but use the unit label
+      displayUnit = unit;
+    }
+
+    if (!productGroups.has(productKey)) {
+      productGroups.set(productKey, {
+        productName,
+        unitLabel: unitLabel,
+        unitPrice: unitPrice,
+        vat: vat,
+        totalQuantity: 0
+      });
+    }
+
+    const group = productGroups.get(productKey);
+    group.totalQuantity = Number((group.totalQuantity + smallUnitQuantity).toFixed(2));
+  });
+
+  // Calculate totals for each product
+  let grandTotal = 0;
+  let grandTotalWithVat = 0;
+  const invoiceLines = [];
+
+  productGroups.forEach(group => {
+    const totalPrice = Number((group.totalQuantity * group.unitPrice).toFixed(2));
+    const totalPriceWithVat = calculatePriceWithVat(totalPrice, group.vat);
+    grandTotal += totalPrice;
+    grandTotalWithVat += totalPriceWithVat;
+    invoiceLines.push({
+      productName: group.productName,
+      quantity: group.totalQuantity,
+      unit: group.unitLabel,
+      unitPrice: group.unitPrice,
+      totalPrice,
+      vat: group.vat,
+      totalPriceWithVat
+    });
+  });
+
+  // Generate invoice HTML
+  const invoiceHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Invoice - ${escapeHtml(megaOrder.id)}</title>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          max-width: 900px;
+          margin: 0 auto;
+          padding: 20px;
+        }
+        h1 {
+          text-align: center;
+          color: #333;
+          border-bottom: 2px solid #667eea;
+          padding-bottom: 10px;
+        }
+        .invoice-header {
+          margin-bottom: 30px;
+        }
+        .invoice-header p {
+          margin: 5px 0;
+          color: #666;
+        }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-top: 20px;
+        }
+        th, td {
+          border: 1px solid #ddd;
+          padding: 10px 6px;
+          text-align: left;
+          font-size: 13px;
+        }
+        th {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+        }
+        tr:nth-child(even) {
+          background-color: #f9f9f9;
+        }
+        .number-col {
+          text-align: right;
+        }
+        .total-row {
+          font-weight: bold;
+          background-color: #f0f0f0 !important;
+        }
+        .total-row td {
+          border-top: 2px solid #333;
+        }
+        .grand-total-vat {
+          background-color: #e8f5e9 !important;
+        }
+        @media print {
+          body { margin: 0; padding: 10px; }
+          .no-print { display: none; }
+        }
+      </style>
+    </head>
+    <body>
+      <h1>MegaBuy Invoice</h1>
+      <div class="invoice-header">
+        <p><strong>Order ID:</strong> ${escapeHtml(megaOrder.id)}</p>
+        <p><strong>Date:</strong> ${escapeHtml(formatOrderDate(megaOrder.updated_at || megaOrder.order_date))}</p>
+        <p><strong>State:</strong> ${escapeHtml(megaOrder.state)}</p>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Product Name</th>
+            <th class="number-col">Qty</th>
+            <th>Unit</th>
+            <th class="number-col">Unit Price (kr)</th>
+            <th class="number-col">Total (kr)</th>
+            <th class="number-col">VAT %</th>
+            <th class="number-col">Total incl. VAT (kr)</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${invoiceLines.map(line => `
+            <tr>
+              <td>${escapeHtml(line.productName)}</td>
+              <td class="number-col">${line.quantity}</td>
+              <td>${escapeHtml(line.unit)}</td>
+              <td class="number-col">${line.unitPrice.toFixed(2)}</td>
+              <td class="number-col">${line.totalPrice.toFixed(2)}</td>
+              <td class="number-col">${line.vat}%</td>
+              <td class="number-col">${line.totalPriceWithVat.toFixed(2)}</td>
+            </tr>
+          `).join('')}
+          <tr class="total-row">
+            <td colspan="4"><strong>Grand Total (excl. VAT)</strong></td>
+            <td class="number-col"><strong>${grandTotal.toFixed(2)} kr</strong></td>
+            <td colspan="2"></td>
+          </tr>
+          <tr class="total-row grand-total-vat">
+            <td colspan="6"><strong>Grand Total (incl. VAT)</strong></td>
+            <td class="number-col"><strong>${grandTotalWithVat.toFixed(2)} kr</strong></td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="no-print" style="text-align: center; margin-top: 30px;">
+        <button onclick="window.print()" style="padding: 10px 30px; font-size: 16px; cursor: pointer;">Print Invoice</button>
+      </p>
+    </body>
+    </html>
+  `;
+
+  // Open in new window and print
+  const printWindow = window.open('', '_blank');
+  printWindow.document.write(invoiceHtml);
+  printWindow.document.close();
 }
 
 function openOrderModal() {

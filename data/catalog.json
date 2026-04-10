@@ -4,60 +4,70 @@
       "id": "cat_meat",
       "name": "Meat & Poultry",
       "description": "Fresh and frozen meat, poultry products",
+      "vat": 6,
       "created_at": "2026-03-19T08:00:00.000Z"
     },
     {
       "id": "cat_seafood",
       "name": "Seafood",
       "description": "Fresh and frozen seafood products",
+      "vat": 6,
       "created_at": "2026-03-19T08:00:00.000Z"
     },
     {
       "id": "cat_rice",
       "name": "Rice & Grains",
       "description": "Rice, sticky rice and grain products",
+      "vat": 6,
       "created_at": "2026-03-19T08:00:00.000Z"
     },
     {
       "id": "cat_noodles",
       "name": "Noodles & Pasta",
       "description": "Dried and fresh noodles",
+      "vat": 6,
       "created_at": "2026-03-19T08:00:00.000Z"
     },
     {
       "id": "cat_sauce",
       "name": "Sauces & Condiments",
       "description": "Fish sauce, oyster sauce, seasoning",
+      "vat": 6,
       "created_at": "2026-03-19T08:00:00.000Z"
     },
     {
       "id": "cat_snacks",
       "name": "Snacks",
       "description": "Chips, crackers and snack items",
+      "vat": 6,
       "created_at": "2026-03-19T08:00:00.000Z"
     },
     {
       "id": "cat_vegetables",
       "name": "Vegetables & Pickled",
       "description": "Fresh vegetables and pickled products",
+      "vat": 6,
       "created_at": "2026-03-19T08:00:00.000Z"
     },
     {
       "id": "cat_drinks",
       "name": "Drinks & Beverages",
       "description": "Water, coconut drinks and beverages",
+      "vat": 6,
       "created_at": "2026-03-19T08:00:00.000Z"
     },
     {
       "id": "cat_frozen",
       "name": "Frozen Foods",
       "description": "Frozen meats, vegetables and ready meals",
+      "vat": 6,
       "created_at": "2026-03-19T08:00:00.000Z"
     },
     {
       "id": "cat_drygoods",
       "name": "Dry Goods",
       "description": "Peanuts, seaweed, dried ingredients",
+      "vat": 6,
       "created_at": "2026-03-19T08:00:00.000Z"
     }
   ],

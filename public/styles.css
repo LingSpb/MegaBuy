@@ -273,6 +273,12 @@ body {
   margin: 3px 0;
 }
 
+.card-content .vat-info {
+  color: #888;
+  font-size: 12px;
+  font-style: italic;
+}
+
 .card-actions {
   display: flex;
   gap: 10px;
@@ -322,8 +328,32 @@ body {
   font-weight: 500;
 }
 
+.price-vat-badge {
+  background: #28a745;
+  color: white;
+  padding: 4px 10px;
+  border-radius: 15px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.unit-price-vat-badge {
+  background: #17a2b8;
+  color: white;
+  padding: 4px 10px;
+  border-radius: 15px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
 .order-card {
   align-items: flex-start;
+}
+
+.total-vat-text {
+  color: #28a745;
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .order-header {

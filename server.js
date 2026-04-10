@@ -420,7 +420,7 @@ app.get('/api/categories/:id', async (req, res) => {
 
 // Create new category
 app.post('/api/categories', async (req, res) => {
-  const { name, description } = req.body;
+  const { name, description, vat } = req.body;
 
   if (!name || name.trim() === '') {
     return res.status(400).json({ error: 'Category name is required' });
@@ -442,6 +442,7 @@ app.post('/api/categories', async (req, res) => {
       id: Date.now().toString(),
       name: name.trim(),
       description: description || '',
+      vat: vat != null ? Number(vat) : 6,
       created_at: new Date().toISOString()
     };
 
@@ -460,7 +461,7 @@ app.post('/api/categories', async (req, res) => {
 
 // Update category
 app.put('/api/categories/:id', async (req, res) => {
-  const { name, description } = req.body;
+  const { name, description, vat } = req.body;
 
   if (!name || name.trim() === '') {
     return res.status(400).json({ error: 'Category name is required' });
@@ -491,7 +492,11 @@ app.put('/api/categories/:id', async (req, res) => {
 
     const { data, error } = await supabase
       .from('categories')
-      .update({ name: name.trim(), description: description || '' })
+      .update({ 
+        name: name.trim(), 
+        description: description || '',
+        vat: vat != null ? Number(vat) : category.vat ?? 6
+      })
       .eq('id', req.params.id)
       .select()
       .single();
@@ -628,7 +633,7 @@ app.post('/api/products', async (req, res) => {
       unit_label: (req.body.unit_label || (selling_type === 'package' ? 'unit' : 'piece')).trim(),
       unit_price: selling_type === 'package' ? parseFloat(req.body.unit_price) || null : null,
       price: parseFloat(price),
-      package_quantity: selling_type === 'package' ? parseInt(package_quantity) || 1 : 1,
+      package_quantity: selling_type === 'package' ? parseFloat(package_quantity) || 1 : 1,
       package_unit: selling_type === 'package' ? (req.body.package_unit || 'units') : null,
       created_at: new Date().toISOString()
     };
@@ -722,7 +727,7 @@ app.put('/api/products/:id', async (req, res) => {
       unit_label: (req.body.unit_label || (selling_type === 'package' ? 'unit' : 'piece')).trim(),
       unit_price: selling_type === 'package' ? parseFloat(req.body.unit_price) || null : null,
       price: parseFloat(price),
-      package_quantity: selling_type === 'package' ? parseInt(package_quantity) || 1 : 1,
+      package_quantity: selling_type === 'package' ? parseFloat(package_quantity) || 1 : 1,
       package_unit: selling_type === 'package' ? (req.body.package_unit || 'units') : null
     };
 
