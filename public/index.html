@@ -117,6 +117,18 @@
         </section>
       </div>
 
+      <!-- Archived Mega Orders -->
+      <div id="archived-mega-orders-section" class="archived-section" style="display:none">
+        <button class="archived-toggle" onclick="toggleArchivedMegaOrders()">
+          <span class="archived-toggle-icon" id="archived-mega-toggle-icon">▶</span>
+          <span>Archived Mega Orders</span>
+          <span class="archived-count-badge" id="archived-mega-count-badge">0</span>
+        </button>
+        <div id="archived-mega-orders-list" class="list-container archived-list" style="display:none">
+          <!-- Archived (Closed) Mega orders will be loaded here -->
+        </div>
+      </div>
+
       <!-- Archived Orders -->
       <div id="archived-orders-section" class="archived-section" style="display:none">
         <button class="archived-toggle" onclick="toggleArchivedOrders()">

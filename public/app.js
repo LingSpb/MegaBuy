@@ -772,7 +772,15 @@ function navigateToOrder(orderId) {
       for (const card of allOrderCards) {
         const header = card.querySelector('h3');
         if (header && header.textContent === orderId) {
-          // If in archived section, expand it first
+          // If in archived mega orders section, expand it first
+          const archivedMegaList = document.getElementById('archived-mega-orders-list');
+          if (archivedMegaList && archivedMegaList.contains(card)) {
+            archivedMegaList.style.display = 'grid';
+            const icon = document.getElementById('archived-mega-toggle-icon');
+            if (icon) icon.textContent = '▼';
+          }
+          
+          // If in archived orders section, expand it first
           const archivedList = document.getElementById('archived-orders-list');
           if (archivedList && archivedList.contains(card)) {
             archivedList.style.display = 'grid';
@@ -859,18 +867,36 @@ function renderArchivedSection(archivedOrders) {
   listEl.innerHTML = archivedOrders.map(renderOrderCard).join('');
 }
 
+function renderArchivedMegaSection(archivedMegaOrders) {
+  const section = document.getElementById('archived-mega-orders-section');
+  const listEl = document.getElementById('archived-mega-orders-list');
+  const countBadge = document.getElementById('archived-mega-count-badge');
+  if (!section || !listEl || !countBadge) return;
+
+  if (archivedMegaOrders.length === 0) {
+    section.style.display = 'none';
+    return;
+  }
+
+  countBadge.textContent = archivedMegaOrders.length;
+  section.style.display = 'block';
+  listEl.innerHTML = archivedMegaOrders.map(renderOrderCard).join('');
+}
+
 function displayOrders() {
   const normalContainer = document.getElementById('normal-orders-list');
   const megaContainer = document.getElementById('mega-orders-list');
   if (!normalContainer || !megaContainer) return;
 
   const activeNormalOrders = allOrders.filter(o => o.order_type !== 'mega_buy' && o.state !== 'Closed');
-  const activeMegaOrders = allOrders.filter(o => o.order_type === 'mega_buy');
+  const activeMegaOrders = allOrders.filter(o => o.order_type === 'mega_buy' && o.state !== 'Closed');
+  const archivedMegaOrders = allOrders.filter(o => o.order_type === 'mega_buy' && o.state === 'Closed')
+    .sort((a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at));
   const archivedOrders = allOrders.filter(o => o.order_type !== 'mega_buy' && o.state === 'Closed')
     .sort((a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at));
 
   const sortedNormal = [...activeNormalOrders].sort((a, b) => (Number(b.total_amount) || 0) - (Number(a.total_amount) || 0));
-  const sortedMega = [...activeMegaOrders].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  const sortedMega = [...activeMegaOrders].sort((a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at));
 
   normalContainer.innerHTML = sortedNormal.length > 0
     ? sortedNormal.map(renderOrderCard).join('')
@@ -880,6 +906,7 @@ function displayOrders() {
     ? sortedMega.map(renderOrderCard).join('')
     : '<div class="empty-message">No Mega Buy orders</div>';
 
+  renderArchivedMegaSection(archivedMegaOrders);
   renderArchivedSection(archivedOrders);
 }
 
@@ -904,8 +931,10 @@ function filterOrders() {
 
   const normalMatches = allOrders.filter(o => o.order_type !== 'mega_buy' && o.state !== 'Closed' && matches(o))
     .sort((a, b) => (Number(b.total_amount) || 0) - (Number(a.total_amount) || 0));
-  const megaMatches = allOrders.filter(o => o.order_type === 'mega_buy' && matches(o))
-    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  const megaMatches = allOrders.filter(o => o.order_type === 'mega_buy' && o.state !== 'Closed' && matches(o))
+    .sort((a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at));
+  const archivedMegaMatches = allOrders.filter(o => o.order_type === 'mega_buy' && o.state === 'Closed' && matches(o))
+    .sort((a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at));
   const archivedMatches = allOrders.filter(o => o.order_type !== 'mega_buy' && o.state === 'Closed' && matches(o))
     .sort((a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at));
 
@@ -917,7 +946,16 @@ function filterOrders() {
     ? megaMatches.map(renderOrderCard).join('')
     : '<div class="empty-message">No matching Mega Buy orders</div>';
 
+  renderArchivedMegaSection(archivedMegaMatches);
   renderArchivedSection(archivedMatches);
+
+  // Auto-expand archived mega orders if search matches
+  if (archivedMegaMatches.length > 0) {
+    const listEl = document.getElementById('archived-mega-orders-list');
+    const icon = document.getElementById('archived-mega-toggle-icon');
+    if (listEl) listEl.style.display = 'grid';
+    if (icon) icon.textContent = '▼';
+  }
 
   // Auto-expand archive if search matches archived orders
   if (archivedMatches.length > 0) {
@@ -931,6 +969,15 @@ function filterOrders() {
 function toggleArchivedOrders() {
   const listEl = document.getElementById('archived-orders-list');
   const icon = document.getElementById('archived-toggle-icon');
+  if (!listEl || !icon) return;
+  const isOpen = listEl.style.display !== 'none';
+  listEl.style.display = isOpen ? 'none' : 'grid';
+  icon.textContent = isOpen ? '▶' : '▼';
+}
+
+function toggleArchivedMegaOrders() {
+  const listEl = document.getElementById('archived-mega-orders-list');
+  const icon = document.getElementById('archived-mega-toggle-icon');
   if (!listEl || !icon) return;
   const isOpen = listEl.style.display !== 'none';
   listEl.style.display = isOpen ? 'none' : 'grid';
@@ -1470,7 +1517,10 @@ function onOrderProductChange(selectElement) {
 
   const units = getProductUnits(product);
   unitSelect.innerHTML = units.map(unit => `<option value="${unit}">${escapeHtml(unit)}</option>`).join('');
-  unitSelect.value = 'carton';
+  // Select the first available unit (carton for package products, unit_label for unit products)
+  if (units.length > 0) {
+    unitSelect.value = units[0];
+  }
   updateOrderTotal();
 }
 

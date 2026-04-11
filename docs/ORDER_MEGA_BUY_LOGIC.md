@@ -142,7 +142,8 @@ If valid:
   - `updated_at = <timestamp>`
 
 Effects:
-- closed child orders move to Archived section
+- closed Mega order moves to Archived Mega Orders section
+- closed child orders move to Archived Orders section
 - closed child orders remain readonly (no Edit/Delete)
 - Closed Mega order can be deleted from UI
 
@@ -154,13 +155,17 @@ Orders screen is split into:
 
 ### Main area
 - normal orders except `Closed`
-- all Mega orders (including `Closed` Mega orders)
+- Mega orders except `Closed` (sorted by updated date desc)
 
-### Archived area (collapsed by default)
-- `Closed` normal child orders
-- this means child orders move to archive after closing Mega
+### Archived Mega Orders (collapsed by default)
+- `Closed` Mega orders (sorted by updated date desc)
+- Closed Mega orders can be deleted from UI
 
-The archive panel expands on click and can auto-expand during search when archived matches exist.
+### Archived Orders (collapsed by default)
+- `Closed` normal child orders (sorted by updated date desc)
+- child orders move to archive after closing Mega
+
+The archive panels expand on click and can auto-expand during search when archived matches exist.
 
 ---
 
