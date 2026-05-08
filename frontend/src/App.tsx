@@ -37,12 +37,6 @@ function AppContent() {
             Orders
           </button>
           <button
-            className={`nav-btn ${activeTab === "categories" ? "active" : ""}`}
-            onClick={() => handleTabChange("categories")}
-          >
-            Categories
-          </button>
-          <button
             className={`nav-btn ${activeTab === "products" ? "active" : ""}`}
             onClick={() => handleTabChange("products")}
           >
@@ -53,6 +47,12 @@ function AppContent() {
             onClick={() => handleTabChange("shopping-list")}
           >
             Shopping List
+          </button>
+          <button
+            className={`nav-btn ${activeTab === "categories" ? "active" : ""}`}
+            onClick={() => handleTabChange("categories")}
+          >
+            Categories
           </button>
         </div>
       </nav>
