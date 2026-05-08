@@ -6,7 +6,7 @@ import {
   getProductUnits,
   aggregateOrderItems,
 } from "../utils/helpers";
-import type { Product, ProductFormData } from "../types";
+import type { ProductWithMetadata, ProductFormData } from "../types";
 
 interface ProductsProps {
   categoryFilter: string;
@@ -66,16 +66,19 @@ export default function Products({
 
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
-      result = result.filter(
-        (p) =>
+      result = result.filter((p) => {
+        const category = categories.find((c) => c.id === p.category_id);
+        const categoryName = category?.name || "";
+        return (
           p.name.toLowerCase().includes(term) ||
           (p.description || "").toLowerCase().includes(term) ||
-          (p.category_name || "").toLowerCase().includes(term),
-      );
+          categoryName.toLowerCase().includes(term)
+        );
+      });
     }
 
     return result;
-  }, [products, categoryFilter, searchTerm]);
+  }, [products, categories, categoryFilter, searchTerm]);
 
   const editableOrders = useMemo(() => {
     return orders.filter(
@@ -85,7 +88,7 @@ export default function Products({
     );
   }, [orders]);
 
-  const openModal = (product: Product | null = null) => {
+  const openModal = (product: ProductWithMetadata | null = null) => {
     if (product) {
       setEditingId(product.id);
       let displayPrice: number | string = product.price;
@@ -290,6 +293,10 @@ export default function Products({
             const displayPriceWithVat = displayPrice
               ? calculatePriceWithVat(displayPrice, vat)
               : null;
+            const category = categories.find(
+              (c) => c.id === product.category_id,
+            );
+            const categoryName = category?.name || "Unknown";
 
             return (
               <div key={product.id} className="card">
@@ -297,7 +304,7 @@ export default function Products({
                   <div className="card-content">
                     <h3>{product.name}</h3>
                     <p>
-                      <strong>Category:</strong> {product.category_name}
+                      <strong>Category:</strong> {categoryName}
                     </p>
                     <p>{getProductDescription(product)}</p>
                   </div>

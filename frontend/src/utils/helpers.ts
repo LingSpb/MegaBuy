@@ -1,4 +1,9 @@
-import type { Product, Order, OrderItem, OrderItemFormData } from "../types";
+import type {
+  ProductWithMetadata,
+  Order,
+  OrderItem,
+  OrderItemFormData,
+} from "../types";
 
 export function normalizeUnit(value: string | undefined | null): string {
   return String(value || "")
@@ -15,7 +20,7 @@ export function toSingularUnit(value: string | undefined | null): string {
   return normalized;
 }
 
-export function getProductUnits(product: Product): string[] {
+export function getProductUnits(product: ProductWithMetadata): string[] {
   const units = new Set<string>();
   const unitLabel = normalizeUnit(product.unit_label);
   const packageUnit = normalizeUnit(product.package_unit);
@@ -37,7 +42,10 @@ export function getProductUnits(product: Product): string[] {
   return Array.from(units);
 }
 
-export function getUnitPrice(product: Product, unit: string): number | null {
+export function getUnitPrice(
+  product: ProductWithMetadata,
+  unit: string,
+): number | null {
   const normalizedUnit = normalizeUnit(unit);
   const unitLabel = normalizeUnit(product.unit_label);
   const packageUnit = normalizeUnit(product.package_unit);
@@ -71,7 +79,7 @@ export function getUnitPrice(product: Product, unit: string): number | null {
   return null;
 }
 
-export function getSmallUnitForProduct(product: Product): string {
+export function getSmallUnitForProduct(product: ProductWithMetadata): string {
   const unitLabel = toSingularUnit(product.unit_label);
   if (unitLabel && unitLabel !== "carton") {
     return unitLabel;
@@ -83,7 +91,7 @@ export function getSmallUnitForProduct(product: Product): string {
   return "unit";
 }
 
-export function getProductDescription(product: Product): string {
+export function getProductDescription(product: ProductWithMetadata): string {
   if (product.description && product.description.trim()) {
     return product.description;
   }
@@ -188,7 +196,7 @@ export function aggregateOrderItems(
 
 export function calculateOrderTotalWithVat(
   order: Order | null | undefined,
-  products: Product[],
+  products: ProductWithMetadata[],
   getCategoryVat: (categoryId: string) => number,
   calculatePriceWithVat: (price: number, vat: number) => number,
 ): number {

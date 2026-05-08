@@ -8,7 +8,7 @@ import {
 } from "react";
 import type {
   Category,
-  Product,
+  ProductWithMetadata,
   Order,
   CategoryFormData,
   ProductFormData,
@@ -19,7 +19,7 @@ import type {
 
 interface AppContextValue {
   categories: Category[];
-  products: Product[];
+  products: ProductWithMetadata[];
   orders: Order[];
   loading: LoadingState;
   toast: ToastState;
@@ -34,7 +34,7 @@ interface AppContextValue {
   saveProduct: (
     product: ProductFormData,
     id?: string | null,
-  ) => Promise<Product>;
+  ) => Promise<ProductWithMetadata>;
   deleteProduct: (id: string) => Promise<void>;
   fetchOrders: () => Promise<void>;
   saveOrder: (order: OrderFormData, id?: string | null) => Promise<Order>;
@@ -60,7 +60,7 @@ interface AppProviderProps {
 
 export function AppProvider({ children }: AppProviderProps) {
   const [categories, setCategories] = useState<Category[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<ProductWithMetadata[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState<LoadingState>({
     categories: false,

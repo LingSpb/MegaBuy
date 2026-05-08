@@ -100,6 +100,19 @@ function getSmallUnitForProduct(product) {
   return "unit";
 }
 
+/**
+ * Get available units for a product based on package_quantity
+ * - If package_quantity > 1: ["unit", "carton"]
+ * - Otherwise: ["unit"]
+ */
+function getAvailableUnits(product) {
+  const packageQty = Number(product.package_quantity) || 1;
+  if (packageQty > 1) {
+    return ["unit", "carton"];
+  }
+  return ["unit"];
+}
+
 function hydrateOrderPricing(order, products) {
   if (!order || !Array.isArray(order.items)) {
     return {
@@ -315,12 +328,42 @@ async function fetchCategories() {
 }
 
 async function fetchProducts() {
+  // Join products with product_metadata
   const { data, error } = await supabase
     .from("products")
-    .select("*")
+    .select(
+      `
+      *,
+      product_metadata (
+        category_id,
+        description,
+        selling_type,
+        unit_label,
+        unit_price,
+        package_unit,
+        created_at
+      )
+    `,
+    )
     .order("name", { ascending: true });
   if (error) throw error;
-  return data;
+
+  // Flatten the joined data
+  return data.map((p) => ({
+    id: p.id,
+    name: p.name,
+    brand: p.brand,
+    price: p.price,
+    package_quantity: p.package_quantity,
+    // Metadata fields (may be null if no metadata exists)
+    category_id: p.product_metadata?.category_id,
+    description: p.product_metadata?.description || "",
+    selling_type: p.product_metadata?.selling_type || "package",
+    unit_label: p.product_metadata?.unit_label || "unit",
+    unit_price: p.product_metadata?.unit_price,
+    package_unit: p.product_metadata?.package_unit || "units",
+    created_at: p.product_metadata?.created_at,
+  }));
 }
 
 async function fetchOrders() {
@@ -556,10 +599,10 @@ app.delete("/api/categories/:id", async (req, res) => {
       return res.status(404).json({ error: "Category not found" });
     }
 
-    // Check if category has products
+    // Check if category has products (via product_metadata)
     const { data: products } = await supabase
-      .from("products")
-      .select("id")
+      .from("product_metadata")
+      .select("product_id")
       .eq("category_id", req.params.id)
       .limit(1);
 
@@ -589,13 +632,11 @@ app.delete("/api/categories/:id", async (req, res) => {
 app.get("/api/products", async (req, res) => {
   try {
     const products = await fetchProducts();
-    const categories = await fetchCategories();
 
     const enriched = products.map((product) => {
-      const category = categories.find((c) => c.id === product.category_id);
       return {
         ...product,
-        category_name: category ? category.name : "Unknown",
+        units: getAvailableUnits(product),
       };
     });
 
@@ -610,25 +651,48 @@ app.get("/api/products", async (req, res) => {
 // Get product by ID
 app.get("/api/products/:id", async (req, res) => {
   try {
-    const { data: product, error } = await supabase
+    const { data: rawProduct, error } = await supabase
       .from("products")
-      .select("*")
+      .select(
+        `
+        *,
+        product_metadata (
+          category_id,
+          description,
+          selling_type,
+          unit_label,
+          unit_price,
+          package_unit,
+          created_at
+        )
+      `,
+      )
       .eq("id", req.params.id)
       .single();
 
-    if (error || !product) {
+    if (error || !rawProduct) {
       return res.status(404).json({ error: "Product not found" });
     }
 
-    const { data: category } = await supabase
-      .from("categories")
-      .select("name")
-      .eq("id", product.category_id)
-      .single();
+    // Flatten the joined data
+    const product = {
+      id: rawProduct.id,
+      name: rawProduct.name,
+      brand: rawProduct.brand,
+      price: rawProduct.price,
+      package_quantity: rawProduct.package_quantity,
+      category_id: rawProduct.product_metadata?.category_id,
+      description: rawProduct.product_metadata?.description || "",
+      selling_type: rawProduct.product_metadata?.selling_type || "package",
+      unit_label: rawProduct.product_metadata?.unit_label || "unit",
+      unit_price: rawProduct.product_metadata?.unit_price,
+      package_unit: rawProduct.product_metadata?.package_unit || "units",
+      created_at: rawProduct.product_metadata?.created_at,
+    };
 
     res.json({
       ...product,
-      category_name: category ? category.name : "Unknown",
+      units: getAvailableUnits(product),
     });
   } catch (error) {
     res.status(500).json({ error: "Failed to load product: " + error.message });
@@ -639,6 +703,7 @@ app.get("/api/products/:id", async (req, res) => {
 app.post("/api/products", async (req, res) => {
   const {
     name,
+    brand,
     category_id,
     description,
     selling_type,
@@ -674,9 +739,28 @@ app.post("/api/products", async (req, res) => {
       return res.status(400).json({ error: "Category not found" });
     }
 
+    const productId = req.body.id || Date.now().toString();
+    const pkgQty =
+      selling_type === "package" ? parseFloat(package_quantity) || 1 : 1;
+
+    // Insert into products table (raw data)
     const newProduct = {
-      id: Date.now().toString(),
+      id: productId,
       name: name.trim(),
+      brand: brand ? brand.trim() : null,
+      price: parseFloat(price),
+      package_quantity: pkgQty,
+    };
+
+    const { error: productError } = await supabase
+      .from("products")
+      .insert(newProduct);
+
+    if (productError) throw productError;
+
+    // Insert into product_metadata table
+    const metadata = {
+      product_id: productId,
       category_id,
       description: description || "",
       selling_type,
@@ -687,22 +771,23 @@ app.post("/api/products", async (req, res) => {
         selling_type === "package"
           ? parseFloat(req.body.unit_price) || null
           : null,
-      price: parseFloat(price),
-      package_quantity:
-        selling_type === "package" ? parseFloat(package_quantity) || 1 : 1,
       package_unit:
         selling_type === "package" ? req.body.package_unit || "units" : null,
       created_at: new Date().toISOString(),
     };
 
-    const { data, error } = await supabase
-      .from("products")
-      .insert(newProduct)
-      .select()
-      .single();
+    const { error: metadataError } = await supabase
+      .from("product_metadata")
+      .insert(metadata);
 
-    if (error) throw error;
-    res.status(201).json(data);
+    if (metadataError) throw metadataError;
+
+    // Return combined product
+    res.status(201).json({
+      ...newProduct,
+      ...metadata,
+      id: productId,
+    });
   } catch (error) {
     res
       .status(500)
@@ -714,6 +799,7 @@ app.post("/api/products", async (req, res) => {
 app.put("/api/products/:id", async (req, res) => {
   const {
     name,
+    brand,
     category_id,
     description,
     selling_type,
@@ -789,8 +875,26 @@ app.put("/api/products/:id", async (req, res) => {
       return res.status(400).json({ error: "Category not found" });
     }
 
-    const updates = {
+    const pkgQty =
+      selling_type === "package" ? parseFloat(package_quantity) || 1 : 1;
+
+    // Update products table (raw data)
+    const productUpdates = {
       name: name.trim(),
+      brand: brand ? brand.trim() : null,
+      price: parseFloat(price),
+      package_quantity: pkgQty,
+    };
+
+    const { error: productError } = await supabase
+      .from("products")
+      .update(productUpdates)
+      .eq("id", req.params.id);
+
+    if (productError) throw productError;
+
+    // Update product_metadata table
+    const metadataUpdates = {
       category_id,
       description: description || "",
       selling_type,
@@ -801,22 +905,23 @@ app.put("/api/products/:id", async (req, res) => {
         selling_type === "package"
           ? parseFloat(req.body.unit_price) || null
           : null,
-      price: parseFloat(price),
-      package_quantity:
-        selling_type === "package" ? parseFloat(package_quantity) || 1 : 1,
       package_unit:
         selling_type === "package" ? req.body.package_unit || "units" : null,
     };
 
-    const { data, error } = await supabase
-      .from("products")
-      .update(updates)
-      .eq("id", req.params.id)
-      .select()
-      .single();
+    const { error: metadataError } = await supabase
+      .from("product_metadata")
+      .update(metadataUpdates)
+      .eq("product_id", req.params.id);
 
-    if (error) throw error;
-    res.json(data);
+    if (metadataError) throw metadataError;
+
+    // Return combined product
+    res.json({
+      id: req.params.id,
+      ...productUpdates,
+      ...metadataUpdates,
+    });
   } catch (error) {
     res
       .status(500)
@@ -932,11 +1037,9 @@ app.post("/api/orders", async (req, res) => {
       }
 
       if (!quantity || quantity <= 0) {
-        return res
-          .status(400)
-          .json({
-            error: `Quantity must be greater than 0 at line ${index + 1}`,
-          });
+        return res.status(400).json({
+          error: `Quantity must be greater than 0 at line ${index + 1}`,
+        });
       }
 
       if (!unit) {
@@ -1013,23 +1116,19 @@ app.put("/api/orders/:id", async (req, res) => {
     }
 
     if (order.order_type === "mega_buy") {
-      return res
-        .status(400)
-        .json({
-          error:
-            "Mega Buy order product list and quantity are auto-generated and cannot be edited manually",
-        });
+      return res.status(400).json({
+        error:
+          "Mega Buy order product list and quantity are auto-generated and cannot be edited manually",
+      });
     }
 
     const isEditableDeliveredChild =
       order.state === "Delivered" && Boolean(order.locked_by_mega_order_id);
     if (order.state !== "Draft" && !isEditableDeliveredChild) {
-      return res
-        .status(400)
-        .json({
-          error:
-            "Only Draft orders and Delivered child orders from a Mega Buy can be edited",
-        });
+      return res.status(400).json({
+        error:
+          "Only Draft orders and Delivered child orders from a Mega Buy can be edited",
+      });
     }
 
     if (!person_name || person_name.trim() === "") {
@@ -1059,11 +1158,9 @@ app.put("/api/orders/:id", async (req, res) => {
       }
 
       if (!quantity || quantity <= 0) {
-        return res
-          .status(400)
-          .json({
-            error: `Quantity must be greater than 0 at line ${index + 1}`,
-          });
+        return res.status(400).json({
+          error: `Quantity must be greater than 0 at line ${index + 1}`,
+        });
       }
 
       if (!unit) {
@@ -1149,12 +1246,10 @@ app.post("/api/orders/mega-buy", async (req, res) => {
     );
 
     if (sourceOrders.length < 2) {
-      return res
-        .status(400)
-        .json({
-          error:
-            "Mega Buy requires at least 2 Draft normal orders that are not already assigned to another Mega order",
-        });
+      return res.status(400).json({
+        error:
+          "Mega Buy requires at least 2 Draft normal orders that are not already assigned to another Mega order",
+      });
     }
 
     const sourceOrderIds = sourceOrders.map((order) => order.id);
@@ -1219,11 +1314,9 @@ app.post("/api/orders/:id/recalculate", async (req, res) => {
     }
 
     if (!["Draft", "Delivered"].includes(order.state)) {
-      return res
-        .status(400)
-        .json({
-          error: "Only Draft or Delivered Mega Buy orders can be recalculated",
-        });
+      return res.status(400).json({
+        error: "Only Draft or Delivered Mega Buy orders can be recalculated",
+      });
     }
 
     const allOrders = await fetchOrders();
@@ -1256,12 +1349,10 @@ app.post("/api/orders/:id/recalculate", async (req, res) => {
       );
 
       if (sourceOrders.length < 2) {
-        return res
-          .status(400)
-          .json({
-            error:
-              "Mega Buy recalculation requires at least 2 Draft normal orders that are not already assigned to another Mega order",
-          });
+        return res.status(400).json({
+          error:
+            "Mega Buy recalculation requires at least 2 Draft normal orders that are not already assigned to another Mega order",
+        });
       }
 
       childOrderIds = sourceOrders.map((item) => item.id);
@@ -1269,12 +1360,10 @@ app.post("/api/orders/:id/recalculate", async (req, res) => {
       childOrderIds = getMegaChildOrderIds(order);
 
       if (childOrderIds.length === 0) {
-        return res
-          .status(400)
-          .json({
-            error:
-              "Delivered Mega Buy order has no child orders to recalculate from",
-          });
+        return res.status(400).json({
+          error:
+            "Delivered Mega Buy order has no child orders to recalculate from",
+        });
       }
 
       sourceOrders = hydratedOrders.filter(
@@ -1285,12 +1374,10 @@ app.post("/api/orders/:id/recalculate", async (req, res) => {
       );
 
       if (sourceOrders.length !== childOrderIds.length) {
-        return res
-          .status(400)
-          .json({
-            error:
-              "All child orders must be in Delivered state before recalculating a Delivered Mega Buy order",
-          });
+        return res.status(400).json({
+          error:
+            "All child orders must be in Delivered state before recalculating a Delivered Mega Buy order",
+        });
       }
     }
 
@@ -1376,12 +1463,10 @@ app.post("/api/orders/:id/place", async (req, res) => {
     );
 
     if (sourceOrders.length < 2) {
-      return res
-        .status(400)
-        .json({
-          error:
-            "Mega Buy order requires at least 2 Draft normal orders that are not already assigned to another Mega order",
-        });
+      return res.status(400).json({
+        error:
+          "Mega Buy order requires at least 2 Draft normal orders that are not already assigned to another Mega order",
+      });
     }
 
     const childOrderIds = sourceOrders.map((item) => item.id);
@@ -1449,11 +1534,9 @@ app.post("/api/orders/:id/deliver", async (req, res) => {
     }
 
     if (order.order_type !== "mega_buy") {
-      return res
-        .status(400)
-        .json({
-          error: "Only Mega Buy orders can be delivered with this action",
-        });
+      return res.status(400).json({
+        error: "Only Mega Buy orders can be delivered with this action",
+      });
     }
 
     if (order.state !== "Locked") {
@@ -1490,12 +1573,10 @@ app.post("/api/orders/:id/deliver", async (req, res) => {
     }
 
     if (sourceOrders.some((item) => item.state !== "Locked")) {
-      return res
-        .status(400)
-        .json({
-          error:
-            "All child orders must be Locked before delivering Mega Buy order",
-        });
+      return res.status(400).json({
+        error:
+          "All child orders must be Locked before delivering Mega Buy order",
+      });
     }
 
     const now = new Date().toISOString();
@@ -1588,11 +1669,9 @@ app.get("/api/orders/:id/unlock", async (req, res) => {
     }
 
     if (sourceOrders.some((item) => item.state !== "Locked")) {
-      return res
-        .status(400)
-        .json({
-          error: "All child orders must be Locked to unlock Mega Buy order",
-        });
+      return res.status(400).json({
+        error: "All child orders must be Locked to unlock Mega Buy order",
+      });
     }
 
     const now = new Date().toISOString();
@@ -1683,12 +1762,10 @@ app.post("/api/orders/:id/close", async (req, res) => {
     }
 
     if (sourceOrders.some((item) => item.state !== "Delivered")) {
-      return res
-        .status(400)
-        .json({
-          error:
-            "All child orders must be Delivered before closing Mega Buy order",
-        });
+      return res.status(400).json({
+        error:
+          "All child orders must be Delivered before closing Mega Buy order",
+      });
     }
 
     const now = new Date().toISOString();
@@ -1754,20 +1831,16 @@ app.delete("/api/orders/:id", async (req, res) => {
         }
 
         if (sourceOrders.some((item) => item.order_type === "mega_buy")) {
-          return res
-            .status(400)
-            .json({
-              error: "Mega Buy order cannot have Mega Buy child orders",
-            });
+          return res.status(400).json({
+            error: "Mega Buy order cannot have Mega Buy child orders",
+          });
         }
 
         if (sourceOrders.some((item) => item.state !== "Closed")) {
-          return res
-            .status(400)
-            .json({
-              error:
-                "All child orders must be Closed before deleting a Closed Mega Buy order",
-            });
+          return res.status(400).json({
+            error:
+              "All child orders must be Closed before deleting a Closed Mega Buy order",
+          });
         }
 
         const { error: childDeleteError } = await supabase
@@ -1793,12 +1866,10 @@ app.delete("/api/orders/:id", async (req, res) => {
     }
 
     if (order.state !== "Draft") {
-      return res
-        .status(400)
-        .json({
-          error:
-            "Only Draft orders can be deleted, except Closed Mega Buy orders which delete with their child orders",
-        });
+      return res.status(400).json({
+        error:
+          "Only Draft orders can be deleted, except Closed Mega Buy orders which delete with their child orders",
+      });
     }
 
     // order_items deleted via ON DELETE CASCADE

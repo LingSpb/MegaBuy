@@ -7,19 +7,24 @@ export interface Category {
   created_at?: string;
 }
 
-// Product types
+// Product types - raw product data (5 core fields, id is the product code)
 export interface Product {
   id: string;
   name: string;
+  brand: string;
+  price: number;
+  package_quantity: number;
+}
+
+// Extended product with metadata (for API responses)
+export interface ProductWithMetadata extends Product {
   category_id: string;
-  category_name?: string;
   description?: string;
   selling_type: "unit" | "package";
   unit_label?: string;
   unit_price?: number;
-  price: number;
-  package_quantity?: number;
   package_unit?: string;
+  units?: string[];
   created_at?: string;
 }
 
