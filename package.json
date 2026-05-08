@@ -2,10 +2,12 @@
   "name": "megabuy",
   "version": "1.0.0",
   "description": "Product category management application",
-  "main": "server.js",
+  "main": "backend/server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js"
+    "start": "node backend/server.js",
+    "server": "node backend/server.js",
+    "client": "cd frontend && npm run dev",
+    "dev": "node backend/server.js"
   },
   "keywords": [
     "products",

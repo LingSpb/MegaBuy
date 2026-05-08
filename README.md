@@ -1,22 +1,23 @@
 # MegaBuy
 
-MegaBuy is a lightweight product and order management app built with `Express` + vanilla JavaScript, using JSON file storage (`data/store.json`).
+MegaBuy is a product and order management app built with Express backend and React + TypeScript frontend, using Supabase for data storage.
 
 It supports:
+
 - Category and product management
-- Draft/Locked/Closed order lifecycle
+- Draft/Locked/Delivered/Closed order lifecycle
 - Mega Buy order generation from all draft normal orders
 - Carton-aware quantity aggregation and recalculation
-- Locking a Mega order and both children in one action
+- Locking a Mega order and all children in one action
 - Archived order view (collapsed by default)
 
 ---
 
 ## Tech Stack
 
-- **Backend:** `Node.js`, `Express`, `body-parser`
-- **Frontend:** `HTML`, `CSS`, vanilla `JavaScript`
-- **Storage:** flat JSON file at `data/store.json`
+- **Backend:** Node.js, Express, body-parser
+- **Frontend:** React 19, TypeScript, Vite
+- **Database:** Supabase (PostgreSQL)
 
 ---
 
@@ -24,76 +25,110 @@ It supports:
 
 ```text
 MegaBuy/
-├── server.js
-├── package.json
-├── data/
-│   └── store.json
-├── public/
+├── backend/
+│   ├── server.js
+│   ├── api/
+│   │   └── index.js
+│   └── lib/
+│       └── supabase.js
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   ├── context/
+│   │   ├── types/
+│   │   ├── utils/
+│   │   ├── App.tsx
+│   │   └── main.tsx
 │   ├── index.html
-│   ├── styles.css
-│   └── app.js
-└── docs/
-    ├── API_REFERENCE.md
-    └── ORDER_MEGA_BUY_LOGIC.md
+│   ├── vite.config.ts
+│   └── tsconfig.json
+├── data/
+│   ├── catalog.json
+│   └── orders.json
+├── docs/
+│   ├── API_REFERENCE.md
+│   └── ORDER_MEGA_BUY_LOGIC.md
+├── public/
+├── supabase/
+│   ├── migration.sql
+│   └── seed.sql
+└── package.json
 ```
 
 ---
 
 ## Setup
 
-1. Install dependencies:
+### 1. Install dependencies
 
 ```powershell
 npm install
+cd frontend && npm install
 ```
 
-2. Start server:
+### 2. Configure environment
+
+Create a `.env` file in the root directory:
+
+```env
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+```
+
+### 3. Start backend server
 
 ```powershell
-npm start
+npm run server
 ```
 
-3. Open:
+### 4. Start frontend dev server
 
-```text
-http://localhost:3000
+```powershell
+cd frontend && npm run dev
 ```
 
-### If `npm start` exits with code 1
+### 5. Open the app
 
-This is typically a port conflict on `3000`. Run on another port:
+- Frontend: http://localhost:5173 (proxies API to backend)
+- Backend API: http://localhost:3000
+
+### Port Conflicts
+
+If port 3000 is in use:
 
 ```powershell
 $env:PORT="3100"
-npm start
+npm run server
 ```
 
-Then open:
-
-```text
-http://localhost:3100
-```
+Then update `frontend/vite.config.ts` proxy target accordingly.
 
 ---
+
 ## Core Features
 
 ### Categories
+
 - Create, list, update, delete
 - Unique name enforcement (case-insensitive)
 - Cannot delete category if products still reference it
 
 ### Products
+
 - Create, list, update, delete
 - Supports `selling_type` = `unit` or `package`
 - Package products support carton + small-unit pricing
 - Cannot delete products that are used by any order item
 
 ### Orders
+
 - Create standard customer orders
-- Order default state is always `Draft`
-- Only `Draft` orders can be edited/deleted
+- Order states: `Draft` → `Locked` → `Delivered` → `Closed`
+- `Draft` orders can be edited/deleted
+- `Delivered` child orders (from Mega Buy) can be edited
 
 ### Mega Buy Orders
+
 - Create from all draft normal orders (`state = Draft`, `order_type != mega_buy`)
 - Auto-aggregates quantities across child orders
 - Package items are rounded to cartons with remainder handling
@@ -101,13 +136,17 @@ http://localhost:3100
   - `child_order_ids` (primary)
   - `source_order_ids` (compatibility)
 - Supports:
-  - `Recalculate` (draft-only)
-  - `Place Order` (draft-only): locks Mega order + all child orders
+  - `Recalculate`: regenerate items from child orders (Draft or Delivered)
+  - `Place Order`: locks Mega order + all child orders (Draft only)
+  - `Deliver Order`: marks Mega + children as Delivered (Locked only)
+  - `Close Order`: archives Mega + children (Delivered only)
 
 ### Archived Orders UI
-- In Orders tab, archived section is collapsed by default
-- Contains only locked/closed **normal** orders
-- Locked Mega orders stay in main list for visibility
+
+- In Orders tab, archived sections are collapsed by default
+- Archived Mega Orders: contains `Closed` Mega orders
+- Archived Orders: contains `Closed` normal/child orders
+- Closed Mega orders can be deleted (also deletes child orders)
 
 ---
 
@@ -123,6 +162,8 @@ http://localhost:3100
   "state": "Draft",
   "items": [],
   "total_amount": 1505.2,
+  "locked_by_mega_order_id": null,
+  "locked_at": null,
   "created_at": "...",
   "updated_at": "..."
 }
@@ -140,7 +181,9 @@ http://localhost:3100
   "source_order_ids": ["ord_a", "ord_b"],
   "immutable_items": true,
   "items": [],
-  "total_amount": 3097.2
+  "total_amount": 3097.2,
+  "placed_at": null,
+  "delivered_at": null
 }
 ```
 
@@ -159,6 +202,7 @@ http://localhost:3100
 ## API Summary
 
 ### Categories
+
 - `GET /api/categories`
 - `GET /api/categories/:id`
 - `POST /api/categories`
@@ -166,6 +210,7 @@ http://localhost:3100
 - `DELETE /api/categories/:id`
 
 ### Products
+
 - `GET /api/products`
 - `GET /api/products/:id`
 - `POST /api/products`
@@ -173,6 +218,7 @@ http://localhost:3100
 - `DELETE /api/products/:id`
 
 ### Orders
+
 - `GET /api/orders`
 - `GET /api/orders/:id`
 - `POST /api/orders`
@@ -181,6 +227,8 @@ http://localhost:3100
 - `POST /api/orders/mega-buy`
 - `POST /api/orders/:id/recalculate`
 - `POST /api/orders/:id/place`
+- `POST /api/orders/:id/deliver`
+- `POST /api/orders/:id/close`
 
 For full request/response details, see `docs/API_REFERENCE.md`.
 
@@ -195,6 +243,6 @@ For full request/response details, see `docs/API_REFERENCE.md`.
 
 ## Notes
 
-- Data persistence is file-based and synchronous (`fs.readFileSync`/`fs.writeFileSync`).
+- Data is stored in Supabase (PostgreSQL).
 - Timestamps are ISO-8601 strings.
-- This project is intentionally simple and optimized for local/internal workflows.
+- The frontend uses Vite's proxy to forward `/api` requests to the backend during development.
