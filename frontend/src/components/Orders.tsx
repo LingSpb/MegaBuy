@@ -61,7 +61,6 @@ export default function Orders() {
     items: [{ product_id: "", quantity: 1, unit: "carton" }],
   });
   const [orderModalError, setOrderModalError] = useState<string | null>(null);
-  const [productSearch, setProductSearch] = useState("");
 
   // Filter and sort orders
   const {
@@ -162,7 +161,6 @@ export default function Orders() {
       });
     }
     setOrderModalError(null);
-    setProductSearch("");
     setOrderModalOpen(true);
   };
 
@@ -170,7 +168,6 @@ export default function Orders() {
     setOrderModalOpen(false);
     setEditingOrderId(null);
     setOrderModalError(null);
-    setProductSearch("");
   };
 
   const addOrderItem = () => {
@@ -1017,18 +1014,6 @@ export default function Orders() {
           <div className="order-items-section">
             <div className="order-items-header">
               <label>Order Items</label>
-              <input
-                type="text"
-                placeholder="Search products..."
-                value={productSearch}
-                onChange={(e) => setProductSearch(e.target.value)}
-                style={{
-                  flex: 1,
-                  marginLeft: "1rem",
-                  marginRight: "1rem",
-                  padding: "0.25rem 0.5rem",
-                }}
-              />
               <button
                 type="button"
                 className="btn btn-secondary btn-sm"
@@ -1066,22 +1051,10 @@ export default function Orders() {
                     >
                       <option value="">Select product</option>
                       {(() => {
-                        const filtered = products.filter((p) => {
-                          if (!productSearch) return true;
-                          const search = removeVietnameseTones(
-                            productSearch.toLowerCase(),
-                          );
-                          return (
-                            p.id.toLowerCase().includes(search) ||
-                            removeVietnameseTones(
-                              p.name.toLowerCase(),
-                            ).includes(search)
-                          );
-                        });
-                        const inList = filtered.filter((p) =>
+                        const inList = products.filter((p) =>
                           shoppingList.includes(p.id),
                         );
-                        const notInList = filtered.filter(
+                        const notInList = products.filter(
                           (p) => !shoppingList.includes(p.id),
                         );
                         return (
