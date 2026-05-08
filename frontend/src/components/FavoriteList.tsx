@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
 import { useApp } from "../context/AppContext";
+import { useI18n } from "../i18n";
 import { removeVietnameseTones } from "../utils/helpers";
 import type { ProductWithMetadata } from "../types";
 
-export default function ShoppingList() {
+export default function FavoriteList() {
   const {
     shoppingList,
     products,
@@ -11,6 +12,7 @@ export default function ShoppingList() {
     removeFromShoppingList,
     clearShoppingList,
   } = useApp();
+  const { t } = useI18n();
   const [searchTerm, setSearchTerm] = useState("");
 
   // Get products that are in the shopping list
@@ -37,7 +39,7 @@ export default function ShoppingList() {
   const handleClearAll = async () => {
     if (
       shoppingList.length > 0 &&
-      window.confirm("Are you sure you want to clear the entire shopping list?")
+      window.confirm(t("shoppingList.clearConfirm"))
     ) {
       await clearShoppingList();
     }
@@ -46,35 +48,29 @@ export default function ShoppingList() {
   return (
     <main className="content">
       <div className="page-header">
-        <h2>Shopping List</h2>
-        <p className="page-subtitle">
-          Products people want to buy in the current mega buy order
-        </p>
+        <h2>{t("shoppingList.title")}</h2>
+        <p className="page-subtitle">{t("shoppingList.subtitle")}</p>
       </div>
 
       <div className="toolbar">
         <div className="search-box">
           <input
             type="text"
-            placeholder="Search shopping list..."
+            placeholder={t("common.search")}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
         {shoppingList.length > 0 && (
           <button className="btn btn-danger" onClick={handleClearAll}>
-            Clear All
+            {t("common.clearAll")}
           </button>
         )}
       </div>
 
       {filteredProducts.length === 0 ? (
         <div className="empty-state">
-          <p>
-            {searchTerm
-              ? "No items match your search"
-              : "Shopping list is empty. Add products from the Products tab."}
-          </p>
+          <p>{searchTerm ? t("common.noResults") : t("shoppingList.empty")}</p>
         </div>
       ) : (
         <div className="cards-grid">
@@ -90,10 +86,11 @@ export default function ShoppingList() {
                     {product.id} - {product.name}
                   </h3>
                   <p className="card-meta">
-                    {category?.name || "No category"} • {product.price} kr/
-                    {product.unit_label || "unit"}
+                    {category?.name || t("common.noCategory")} • {product.price}{" "}
+                    kr/
+                    {product.unit_label || t("orders.unit")}
                     {product.selling_type === "package" &&
-                      ` • ${product.package_quantity} per carton`}
+                      ` • ${product.package_quantity} ${t("common.perCarton")}`}
                   </p>
                 </div>
                 <div className="card-actions">
@@ -101,7 +98,7 @@ export default function ShoppingList() {
                     className="btn btn-danger btn-sm"
                     onClick={() => removeFromShoppingList(product.id)}
                   >
-                    Remove
+                    {t("common.remove")}
                   </button>
                 </div>
               </div>

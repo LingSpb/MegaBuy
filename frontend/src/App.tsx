@@ -1,10 +1,11 @@
 import { useState, useCallback } from "react";
 import { AppProvider } from "./context/AppContext";
+import { I18nProvider, useI18n } from "./i18n";
 import Toast from "./components/Toast";
 import Categories from "./components/Categories";
 import Products from "./components/Products";
 import Orders from "./components/Orders";
-import ShoppingList from "./components/ShoppingList";
+import FavoriteList from "./components/FavoriteList";
 import "./App.css";
 
 type TabName = "orders" | "categories" | "products" | "shopping-list";
@@ -12,6 +13,7 @@ type TabName = "orders" | "categories" | "products" | "shopping-list";
 function AppContent() {
   const [activeTab, setActiveTab] = useState<TabName>("orders");
   const [categoryFilter, setCategoryFilter] = useState("");
+  const { t, language, setLanguage } = useI18n();
 
   const handleNavigateToProducts = useCallback((categoryId: string) => {
     setCategoryFilter(categoryId);
@@ -28,31 +30,45 @@ function AppContent() {
   return (
     <div className="container">
       <nav className="navbar">
-        <h1>MegaBuy</h1>
+        <h1>{t("app.title")}</h1>
         <div className="nav-links">
           <button
             className={`nav-btn ${activeTab === "orders" ? "active" : ""}`}
             onClick={() => handleTabChange("orders")}
           >
-            Orders
+            {t("nav.orders")}
           </button>
           <button
             className={`nav-btn ${activeTab === "products" ? "active" : ""}`}
             onClick={() => handleTabChange("products")}
           >
-            Products
+            {t("nav.products")}
           </button>
           <button
             className={`nav-btn ${activeTab === "shopping-list" ? "active" : ""}`}
             onClick={() => handleTabChange("shopping-list")}
           >
-            Shopping List
+            {t("nav.shoppingList")}
           </button>
           <button
             className={`nav-btn ${activeTab === "categories" ? "active" : ""}`}
             onClick={() => handleTabChange("categories")}
           >
-            Categories
+            {t("nav.categories")}
+          </button>
+        </div>
+        <div className="language-switcher">
+          <button
+            className={`lang-btn ${language === "vi" ? "active" : ""}`}
+            onClick={() => setLanguage("vi")}
+          >
+            VI
+          </button>
+          <button
+            className={`lang-btn ${language === "en" ? "active" : ""}`}
+            onClick={() => setLanguage("en")}
+          >
+            EN
           </button>
         </div>
       </nav>
@@ -67,7 +83,7 @@ function AppContent() {
           onCategoryFilterChange={setCategoryFilter}
         />
       )}
-      {activeTab === "shopping-list" && <ShoppingList />}
+      {activeTab === "shopping-list" && <FavoriteList />}
 
       <Toast />
     </div>
@@ -76,9 +92,11 @@ function AppContent() {
 
 function App() {
   return (
-    <AppProvider>
-      <AppContent />
-    </AppProvider>
+    <I18nProvider>
+      <AppProvider>
+        <AppContent />
+      </AppProvider>
+    </I18nProvider>
   );
 }
 

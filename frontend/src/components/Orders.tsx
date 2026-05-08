@@ -1,5 +1,6 @@
 import { useState, useMemo, FormEvent } from "react";
 import { useApp } from "../context/AppContext";
+import { useI18n } from "../i18n";
 import Modal from "./Modal";
 import {
   getProductUnits,
@@ -41,6 +42,7 @@ export default function Orders() {
     getCategoryVat,
     calculatePriceWithVat,
   } = useApp();
+  const { t } = useI18n();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [showArchivedMega, setShowArchivedMega] = useState(false);
@@ -182,7 +184,7 @@ export default function Orders() {
 
   const removeOrderItem = (index: number) => {
     if (orderForm.items.length <= 1) {
-      showToast("An order needs at least one item", "error");
+      showToast(t("orders.minOneItem"), "error");
       return;
     }
     setOrderForm({
@@ -230,7 +232,7 @@ export default function Orders() {
     e.preventDefault();
 
     if (!orderForm.person_name.trim()) {
-      setOrderModalError("Person name is required");
+      setOrderModalError(t("orders.personNameRequired"));
       return;
     }
 
@@ -244,7 +246,10 @@ export default function Orders() {
     );
     if (existingOrder) {
       setOrderModalError(
-        `An order for "${orderForm.person_name.trim()}" already exists`,
+        t("orders.duplicateName").replace(
+          "{name}",
+          orderForm.person_name.trim(),
+        ),
       );
       return;
     }
@@ -264,9 +269,7 @@ export default function Orders() {
           item.quantity <= 0,
       )
     ) {
-      setOrderModalError(
-        "Each order item must have product, quantity and unit",
-      );
+      setOrderModalError(t("orders.itemsRequired"));
       return;
     }
 
@@ -284,9 +287,7 @@ export default function Orders() {
       );
 
       showToast(
-        editingOrderId
-          ? "Order updated successfully!"
-          : "Order created successfully!",
+        editingOrderId ? t("orders.orderUpdated") : t("orders.orderCreated"),
       );
       closeOrderModal();
     } catch (error) {
@@ -302,7 +303,10 @@ export default function Orders() {
 
     // Check if order has a secret phrase
     if (order.has_secret_phrase) {
-      let promptMessage = `Enter the secret phrase to delete ${order.person_name}'s order:`;
+      let promptMessage = t("orders.enterSecretPhrase").replace(
+        "{name}",
+        order.person_name,
+      );
 
       // Keep prompting until correct or cancelled
       while (true) {
@@ -312,31 +316,34 @@ export default function Orders() {
 
         try {
           await deleteOrder(orderId, secretPhrase);
-          showToast("Order deleted successfully!");
+          showToast(t("orders.orderDeleted"));
           return;
         } catch (error) {
           const errorMessage = (error as Error).message;
           if (errorMessage.includes("Incorrect secret phrase")) {
-            promptMessage = `Incorrect phrase. Try again to delete ${order.person_name}'s order:`;
+            promptMessage = t("orders.wrongSecretPhrase").replace(
+              "{name}",
+              order.person_name,
+            );
             continue;
           }
-          showToast("Error: " + errorMessage, "error");
+          showToast(t("toast.error") + ": " + errorMessage, "error");
           return;
         }
       }
     } else {
       const confirmMsg =
         order.order_type === "mega_buy" && order.state === "Closed"
-          ? "Delete this Closed Mega Buy order? This will also delete all its child orders."
-          : "Are you sure you want to delete this draft order?";
+          ? t("orders.confirmDeleteMega")
+          : t("orders.confirmDeleteDraft");
 
       if (!confirm(confirmMsg)) return;
 
       try {
         await deleteOrder(orderId, secretPhrase);
-        showToast("Order deleted successfully!");
+        showToast(t("orders.orderDeleted"));
       } catch (error) {
-        showToast("Error: " + (error as Error).message, "error");
+        showToast(t("toast.error") + ": " + (error as Error).message, "error");
       }
     }
   };
@@ -346,20 +353,14 @@ export default function Orders() {
     if (!order) return;
 
     if (order.order_type === "mega_buy") {
-      showToast(
-        "Mega Buy order items are auto-generated and cannot be edited manually",
-        "error",
-      );
+      showToast(t("orders.cannotEditMega"), "error");
       return;
     }
 
     const isEditableDeliveredChild =
       order.state === "Delivered" && Boolean(order.locked_by_mega_order_id);
     if (order.state !== "Draft" && !isEditableDeliveredChild) {
-      showToast(
-        "Only Draft orders and Delivered child orders from a Mega Buy can be edited",
-        "error",
-      );
+      showToast(t("orders.cannotEditLocked"), "error");
       return;
     }
 
@@ -373,10 +374,7 @@ export default function Orders() {
     );
 
     if (sourceOrders.length < 2) {
-      showToast(
-        "Need at least 2 Draft normal orders to create Mega Buy order",
-        "error",
-      );
+      showToast(t("orders.needAtLeast2"), "error");
       return;
     }
 
@@ -387,19 +385,19 @@ export default function Orders() {
         sourceOrders.map((o) => o.id),
       );
       showToast(
-        `Mega Buy order created from ${sourceOrders.length} Draft normal orders`,
+        t("orders.megaCreated").replace("{count}", String(sourceOrders.length)),
       );
     } catch (error) {
-      showToast("Error: " + (error as Error).message, "error");
+      showToast(t("toast.error") + ": " + (error as Error).message, "error");
     }
   };
 
   const handleRecalculateMegaBuy = async (orderId: string) => {
     try {
       await recalculateMegaBuyOrder(orderId);
-      showToast("Mega Buy order recalculated successfully!");
+      showToast(t("orders.megaRecalculated"));
     } catch (error) {
-      showToast("Error: " + (error as Error).message, "error");
+      showToast(t("toast.error") + ": " + (error as Error).message, "error");
     }
   };
 
@@ -420,44 +418,36 @@ export default function Orders() {
 
     try {
       await placeMegaBuyOrder(pendingPlaceOrderId);
-      showToast("Mega Buy order placed and all child orders locked!");
+      showToast(t("orders.megaPlaced"));
       closePlaceOrderModal();
     } catch (error) {
-      showToast("Error: " + (error as Error).message, "error");
+      showToast(t("toast.error") + ": " + (error as Error).message, "error");
     }
   };
 
   const handleDeliverMegaBuy = async (orderId: string) => {
-    if (
-      !confirm(
-        "Deliver this Mega Buy order? This will mark the Mega order and all child orders as Delivered.",
-      )
-    ) {
+    if (!confirm(t("orders.confirmDeliver"))) {
       return;
     }
 
     try {
       await deliverMegaBuyOrder(orderId);
-      showToast("Mega Buy order delivered and child orders are now Delivered!");
+      showToast(t("orders.megaDelivered"));
     } catch (error) {
-      showToast("Error: " + (error as Error).message, "error");
+      showToast(t("toast.error") + ": " + (error as Error).message, "error");
     }
   };
 
   const handleCloseMegaBuy = async (orderId: string) => {
-    if (
-      !confirm(
-        "Close this Delivered Mega Buy order? This will move all child orders to Closed and archive.",
-      )
-    ) {
+    if (!confirm(t("orders.confirmClose"))) {
       return;
     }
 
     try {
       await closeMegaBuyOrder(orderId);
-      showToast("Mega Buy order closed and child orders moved to archive!");
+      showToast(t("orders.megaClosed"));
     } catch (error) {
-      showToast("Error: " + (error as Error).message, "error");
+      showToast(t("toast.error") + ": " + (error as Error).message, "error");
     }
   };
 
@@ -507,10 +497,10 @@ export default function Orders() {
     navigator.clipboard
       .writeText(details)
       .then(() => {
-        showToast("Order details copied to clipboard!");
+        showToast(t("toast.copiedToClipboard"));
       })
       .catch(() => {
-        showToast("Failed to copy to clipboard", "error");
+        showToast(t("toast.copyFailed"), "error");
       });
   };
 
@@ -520,7 +510,7 @@ export default function Orders() {
     const product = products.find((p) => p.id === productId);
 
     if (!megaOrder || !product) {
-      showToast("Could not find order or product details", "error");
+      showToast(t("common.noResults"), "error");
       return;
     }
 
@@ -603,7 +593,9 @@ export default function Orders() {
   // Render mega order products grid
   const renderMegaProductsGrid = (items: OrderItem[], megaOrderId: string) => {
     if (!Array.isArray(items) || items.length === 0) {
-      return <div className="mega-products-empty">No products</div>;
+      return (
+        <div className="mega-products-empty">{t("orders.noProducts")}</div>
+      );
     }
 
     interface ProductGroup {
@@ -713,38 +705,38 @@ export default function Orders() {
           <div className="order-header">
             <h3>{isMegaBuy ? order.id : order.person_name}</h3>
             <span className={`state-badge ${getOrderStateClass(order.state)}`}>
-              {order.state}
+              {t(`orders.states.${order.state.toLowerCase()}`)}
             </span>
             {isMegaBuy && <span className="selling-type-badge">Mega Buy</span>}
           </div>
           {isMegaBuy && (
             <p>
-              <strong>Person:</strong> {order.person_name}
+              <strong>{t("orders.personName")}:</strong> {order.person_name}
             </p>
           )}
           <p>
-            <strong>Updated:</strong>{" "}
+            <strong>{t("orders.orderDate")}:</strong>{" "}
             {formatOrderDate(order.updated_at || order.order_date)}
           </p>
           <p>
-            <strong>Items:</strong> {order.items.length}
+            <strong>{t("orders.orderItems")}:</strong> {order.items.length}
           </p>
           <p>
-            <strong>Total:</strong> {totalAmount.toFixed(2)} kr{" "}
+            <strong>{t("common.total")}:</strong> {totalAmount.toFixed(2)} kr{" "}
             <span className="total-vat-text">
-              ({totalWithVat.toFixed(2)} kr incl. VAT)
+              ({totalWithVat.toFixed(2)} kr {t("common.inclVat")})
             </span>
           </p>
           {isMegaBuy ? (
             <>
               {order.delivered_at && (
                 <p>
-                  <strong>Delivered:</strong>{" "}
+                  <strong>{t("orders.deliver")}:</strong>{" "}
                   {formatOrderDate(order.delivered_at)}
                 </p>
               )}
               <div className="mega-order-section">
-                <strong>Child Orders:</strong>
+                <strong>{t("orders.normalOrders")}:</strong>
                 <div className="mega-child-orders">
                   {childOrderIds.length > 0
                     ? childOrderIds.map((id) => {
@@ -771,7 +763,7 @@ export default function Orders() {
                               }
                             }}
                             style={{ cursor: "pointer" }}
-                            title={`Click to view ${childOrder?.person_name || id}'s order`}
+                            title={childOrder?.person_name || id}
                           >
                             {childOrder?.person_name || id}
                           </span>
@@ -781,7 +773,7 @@ export default function Orders() {
                 </div>
               </div>
               <div className="mega-order-section">
-                <strong>Products:</strong>
+                <strong>{t("products.title")}:</strong>
                 <div className="mega-products-grid">
                   {renderMegaProductsGrid(order.items, order.id)}
                 </div>
@@ -797,7 +789,7 @@ export default function Orders() {
               className="btn btn-edit"
               onClick={() => handleEditOrder(order.id)}
             >
-              Edit
+              {t("common.edit")}
             </button>
           )}
           {(order.state === "Draft" ||
@@ -806,7 +798,7 @@ export default function Orders() {
               className="btn btn-danger"
               onClick={() => handleDeleteOrder(order.id)}
             >
-              Delete
+              {t("common.delete")}
             </button>
           )}
           {(order.state === "Draft" || order.state === "Delivered") &&
@@ -815,7 +807,7 @@ export default function Orders() {
                 className="btn btn-dark"
                 onClick={() => handleRecalculateMegaBuy(order.id)}
               >
-                Recalculate
+                {t("orders.recalculate")}
               </button>
             )}
           {order.state === "Draft" && isMegaBuy && (
@@ -823,7 +815,7 @@ export default function Orders() {
               className="btn btn-primary"
               onClick={() => openPlaceOrderModal(order.id)}
             >
-              Place Order
+              {t("orders.placeOrder")}
             </button>
           )}
           {order.state === "Locked" && isMegaBuy && (
@@ -831,7 +823,7 @@ export default function Orders() {
               className="btn btn-primary"
               onClick={() => handleDeliverMegaBuy(order.id)}
             >
-              Deliver Order
+              {t("orders.deliver")}
             </button>
           )}
           {order.state === "Delivered" && isMegaBuy && (
@@ -839,7 +831,7 @@ export default function Orders() {
               className="btn btn-primary"
               onClick={() => handleCloseMegaBuy(order.id)}
             >
-              Close Order
+              {t("orders.closeOrder")}
             </button>
           )}
         </div>
@@ -850,28 +842,25 @@ export default function Orders() {
   return (
     <div className="tab active">
       <div className="tab-header">
-        <h2>Orders</h2>
+        <h2>{t("orders.title")}</h2>
         <div className="orders-header-actions">
           <button className="btn btn-secondary" onClick={handleAddMegaBuyOrder}>
-            + Add Mega Buy Order
+            + {t("orders.createMegaBuy")}
           </button>
           <button className="btn btn-primary" onClick={() => openOrderModal()}>
-            + Create Order
+            + {t("orders.newOrder")}
           </button>
         </div>
       </div>
 
       <div className="tab-description">
-        <p>
-          Manage customer orders including regular orders and Mega Buy group
-          orders. Track order status from Draft to Delivered or Closed states.
-        </p>
+        <p>{t("orders.description")}</p>
       </div>
 
       <div className="search-box">
         <input
           type="text"
-          placeholder="Search orders by person, state, id..."
+          placeholder={t("common.searchOrders")}
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
@@ -879,10 +868,10 @@ export default function Orders() {
 
       <div className="orders-sections">
         <section className="orders-section">
-          <h3 className="orders-section-title">Mega Buy Orders</h3>
+          <h3 className="orders-section-title">{t("orders.megaBuyOrders")}</h3>
           <div className="list-container">
             {activeMegaOrders.length === 0 ? (
-              <div className="empty-message">No Mega Buy orders</div>
+              <div className="empty-message">{t("common.noResults")}</div>
             ) : (
               activeMegaOrders.map(renderOrderCard)
             )}
@@ -890,10 +879,10 @@ export default function Orders() {
         </section>
 
         <section className="orders-section">
-          <h3 className="orders-section-title">Normal Orders</h3>
+          <h3 className="orders-section-title">{t("orders.normalOrders")}</h3>
           <div className="list-container">
             {activeNormalOrders.length === 0 ? (
-              <div className="empty-message">No normal orders</div>
+              <div className="empty-message">{t("common.noResults")}</div>
             ) : (
               activeNormalOrders.map(renderOrderCard)
             )}
@@ -911,7 +900,7 @@ export default function Orders() {
             <span className="archived-toggle-icon">
               {showArchivedMega ? "▼" : "▶"}
             </span>
-            <span>Archived Mega Orders</span>
+            <span>{t("orders.archivedOrders")} (Mega)</span>
             <span className="archived-count-badge">
               {archivedMegaOrders.length}
             </span>
@@ -934,7 +923,7 @@ export default function Orders() {
             <span className="archived-toggle-icon">
               {showArchivedNormal ? "▼" : "▶"}
             </span>
-            <span>Archived Orders</span>
+            <span>{t("orders.archivedOrders")}</span>
             <span className="archived-count-badge">
               {archivedNormalOrders.length}
             </span>
@@ -952,7 +941,9 @@ export default function Orders() {
         isOpen={orderModalOpen}
         onClose={closeOrderModal}
         title={
-          editingOrderId ? `Edit Order ${editingOrderId}` : "Create New Order"
+          editingOrderId
+            ? `${t("orders.editOrder")} ${editingOrderId}`
+            : t("orders.newOrder")
         }
       >
         <form onSubmit={handleOrderSubmit}>
@@ -971,7 +962,7 @@ export default function Orders() {
             </div>
           )}
           <div className="form-group">
-            <label htmlFor="orderPersonName">Person Name *</label>
+            <label htmlFor="orderPersonName">{t("orders.personName")} *</label>
             <input
               type="text"
               id="orderPersonName"
@@ -984,7 +975,7 @@ export default function Orders() {
             />
           </div>
           <div className="form-group">
-            <label htmlFor="orderDate">Order Date</label>
+            <label htmlFor="orderDate">{t("orders.orderDate")}</label>
             <input
               type="date"
               id="orderDate"
@@ -997,7 +988,7 @@ export default function Orders() {
           {!editingOrderId && (
             <div className="form-group">
               <label htmlFor="orderSecretPhrase">
-                Secret Phrase (for delete protection)
+                {t("orders.secretPhrase")}
               </label>
               <input
                 type="text"
@@ -1013,13 +1004,13 @@ export default function Orders() {
 
           <div className="order-items-section">
             <div className="order-items-header">
-              <label>Order Items</label>
+              <label>{t("orders.orderItems")}</label>
               <button
                 type="button"
                 className="btn btn-secondary btn-sm"
                 onClick={addOrderItem}
               >
-                + Add Item
+                {t("orders.addItem")}
               </button>
             </div>
             <div id="orderItems">
@@ -1049,7 +1040,7 @@ export default function Orders() {
                         updateOrderItem(index, "product_id", e.target.value)
                       }
                     >
-                      <option value="">Select product</option>
+                      <option value="">{t("orders.selectProduct")}</option>
                       {(() => {
                         const inList = products.filter((p) =>
                           shoppingList.includes(p.id),
@@ -1060,7 +1051,7 @@ export default function Orders() {
                         return (
                           <>
                             {inList.length > 0 && (
-                              <optgroup label="Shopping List">
+                              <optgroup label={t("orders.shoppingList")}>
                                 {inList.map((p) => (
                                   <option
                                     key={p.id}
@@ -1073,7 +1064,7 @@ export default function Orders() {
                               </optgroup>
                             )}
                             {notInList.length > 0 && (
-                              <optgroup label="All Products">
+                              <optgroup label={t("orders.allProducts")}>
                                 {notInList.map((p) => (
                                   <option
                                     key={p.id}
@@ -1118,14 +1109,14 @@ export default function Orders() {
                       className="btn btn-danger btn-sm"
                       onClick={() => removeOrderItem(index)}
                     >
-                      Remove
+                      {t("common.remove")}
                     </button>
                   </div>
                 );
               })}
             </div>
             <div className="order-total">
-              <strong>Total: </strong>
+              <strong>{t("common.total")}: </strong>
               <span>{calculateOrderTotal()} kr</span>
             </div>
           </div>
@@ -1136,10 +1127,10 @@ export default function Orders() {
               className="btn btn-secondary"
               onClick={closeOrderModal}
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button type="submit" className="btn btn-primary">
-              Save Order
+              {t("common.save")}
             </button>
           </div>
         </form>
@@ -1149,13 +1140,12 @@ export default function Orders() {
       <Modal
         isOpen={placeOrderModalOpen}
         onClose={closePlaceOrderModal}
-        title="Place Mega Buy Order"
+        title={t("orders.placeOrderModal.title")}
       >
         <div className="place-order-content">
-          <p>Are you sure you want to place this order?</p>
-          <p>This will lock all child orders and the Mega Buy order.</p>
+          <p>{t("orders.placeOrderModal.confirmText")}</p>
           <div className="place-order-details">
-            <strong>Order Summary:</strong>
+            <strong>{t("orders.placeOrderModal.products")}:</strong>
             <p>
               {pendingOrder
                 ? formatOrderDetailsForCopy(pendingOrder.items)
@@ -1163,15 +1153,15 @@ export default function Orders() {
             </p>
           </div>
           <button className="btn btn-secondary" onClick={copyOrderDetails}>
-            Copy Details
+            {t("common.copyToClipboard")}
           </button>
         </div>
         <div className="modal-footer">
           <button className="btn btn-secondary" onClick={closePlaceOrderModal}>
-            Cancel
+            {t("common.cancel")}
           </button>
           <button className="btn btn-primary" onClick={handleConfirmPlaceOrder}>
-            Place Order
+            {t("orders.placeOrder")}
           </button>
         </div>
       </Modal>
@@ -1180,7 +1170,7 @@ export default function Orders() {
       <Modal
         isOpen={productDetailsModalOpen}
         onClose={closeProductDetailsModal}
-        title="Product Details"
+        title={t("orders.productDetails.title")}
       >
         {productDetailsData && (
           <div className="product-details-content">
@@ -1189,17 +1179,17 @@ export default function Orders() {
               <small
                 style={{ display: "block", color: "#fff", marginTop: "4px" }}
               >
-                {productDetailsData.unitPrice} kr/unit |{" "}
+                {productDetailsData.unitPrice} kr/{t("orders.unit")} |{" "}
                 {productDetailsData.productPrice} kr/carton (
-                {productDetailsData.packageQuantity} units)
+                {productDetailsData.packageQuantity} {t("orders.unit")})
               </small>
             </div>
             <div className="product-details-total">
-              <strong>Total: </strong>
+              <strong>{t("common.total")}: </strong>
               {productDetailsData.totalSum || "0"}
             </div>
             <div className="product-details-breakdown">
-              <strong>Breakdown by person:</strong>
+              <strong>{t("orders.productDetails.orderedBy")}:</strong>
               <div className="breakdown-list">
                 {productDetailsData.breakdown.length > 0 ? (
                   productDetailsData.breakdown.map((b, i) => (
@@ -1229,7 +1219,7 @@ export default function Orders() {
                   ))
                 ) : (
                   <span className="product-breakdown-empty">
-                    No orders found
+                    {t("common.noResults")}
                   </span>
                 )}
               </div>
@@ -1241,7 +1231,7 @@ export default function Orders() {
             className="btn btn-secondary"
             onClick={closeProductDetailsModal}
           >
-            Close
+            {t("common.close")}
           </button>
         </div>
       </Modal>

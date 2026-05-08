@@ -61,6 +61,34 @@ body {
   color: #667eea;
 }
 
+/* Language Switcher */
+.language-switcher {
+  display: flex;
+  gap: 5px;
+  margin-left: 20px;
+}
+
+.lang-btn {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.lang-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.lang-btn.active {
+  background: white;
+  color: #667eea;
+}
+
 /* Tabs */
 .tab {
   padding: 30px;

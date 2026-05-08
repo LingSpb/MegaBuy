@@ -1,5 +1,6 @@
 import { useState, useMemo, FormEvent } from "react";
 import { useApp } from "../context/AppContext";
+import { useI18n } from "../i18n";
 import Modal from "./Modal";
 import { removeVietnameseTones } from "../utils/helpers";
 import type { Category, CategoryFormData } from "../types";
@@ -10,6 +11,7 @@ interface CategoriesProps {
 
 export default function Categories({ onNavigateToProducts }: CategoriesProps) {
   const { categories, saveCategory, deleteCategory, showToast } = useApp();
+  const { t } = useI18n();
   const [searchTerm, setSearchTerm] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -65,43 +67,40 @@ export default function Categories({ onNavigateToProducts }: CategoriesProps) {
       );
       showToast(
         editingId
-          ? "Category updated successfully!"
-          : "Category created successfully!",
+          ? t("categories.categoryUpdated")
+          : t("categories.categoryCreated"),
       );
       closeModal();
     } catch (error) {
-      showToast("Error: " + (error as Error).message, "error");
+      showToast(t("toast.error") + ": " + (error as Error).message, "error");
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this category?")) return;
+    if (!confirm(t("categories.deleteConfirm"))) return;
     try {
       await deleteCategory(id);
-      showToast("Category deleted successfully!");
+      showToast(t("categories.categoryDeleted"));
     } catch (error) {
-      showToast("Error: " + (error as Error).message, "error");
+      showToast(t("toast.error") + ": " + (error as Error).message, "error");
     }
   };
 
   return (
     <div className="tab active">
       <div className="tab-header">
-        <h2>Product Categories</h2>
+        <h2>{t("categories.title")}</h2>
         <button className="btn btn-primary" onClick={() => openModal()}>
-          + Add Category
+          + {t("categories.newCategory")}
         </button>
       </div>
 
-      <div className="tab-description">
-        Manage product categories for organizing your inventory. Create, edit,
-        and delete categories to keep your catalog organized.
-      </div>
+      <div className="tab-description">{t("categories.pageDescription")}</div>
 
       <div className="search-box">
         <input
           type="text"
-          placeholder="Search categories..."
+          placeholder={t("common.searchCategories")}
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
@@ -111,8 +110,8 @@ export default function Categories({ onNavigateToProducts }: CategoriesProps) {
         {filteredCategories.length === 0 ? (
           <div className="empty-message">
             {searchTerm
-              ? "No categories found"
-              : "No categories yet. Create one to get started!"}
+              ? t("categories.noCategoriesFound")
+              : t("categories.noCategoriesYet")}
           </div>
         ) : (
           filteredCategories.map((category) => (
@@ -123,7 +122,7 @@ export default function Categories({ onNavigateToProducts }: CategoriesProps) {
             >
               <div className="card-content">
                 <h3>{category.name}</h3>
-                <p>{category.description || "No description"}</p>
+                <p>{category.description || t("common.noDescription")}</p>
                 <p className="vat-info">
                   VAT: {category.vat != null ? category.vat : 6}%
                 </p>
@@ -136,13 +135,13 @@ export default function Categories({ onNavigateToProducts }: CategoriesProps) {
                   className="btn btn-edit"
                   onClick={() => openModal(category)}
                 >
-                  Edit
+                  {t("common.edit")}
                 </button>
                 <button
                   className="btn btn-danger"
                   onClick={() => handleDelete(category.id)}
                 >
-                  Delete
+                  {t("common.delete")}
                 </button>
               </div>
             </div>
@@ -153,25 +152,31 @@ export default function Categories({ onNavigateToProducts }: CategoriesProps) {
       <Modal
         isOpen={modalOpen}
         onClose={closeModal}
-        title={editingId ? "Edit Category" : "Add New Category"}
+        title={
+          editingId ? t("categories.editCategory") : t("categories.newCategory")
+        }
       >
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label htmlFor="categoryName">Category Name *</label>
+            <label htmlFor="categoryName">
+              {t("categories.categoryName")} *
+            </label>
             <input
               type="text"
               id="categoryName"
-              placeholder="e.g., Staples, Beverages"
+              placeholder={t("categories.placeholder.name")}
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               required
             />
           </div>
           <div className="form-group">
-            <label htmlFor="categoryDescription">Description</label>
+            <label htmlFor="categoryDescription">
+              {t("categories.description")}
+            </label>
             <textarea
               id="categoryDescription"
-              placeholder="Enter category description"
+              placeholder={t("categories.placeholder.description")}
               rows={3}
               value={form.description}
               onChange={(e) =>
@@ -180,7 +185,7 @@ export default function Categories({ onNavigateToProducts }: CategoriesProps) {
             />
           </div>
           <div className="form-group">
-            <label htmlFor="categoryVat">VAT (%)</label>
+            <label htmlFor="categoryVat">{t("categories.vat")}</label>
             <input
               type="number"
               id="categoryVat"
@@ -198,10 +203,10 @@ export default function Categories({ onNavigateToProducts }: CategoriesProps) {
               className="btn btn-secondary"
               onClick={closeModal}
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button type="submit" className="btn btn-primary">
-              Save Category
+              {t("common.save")}
             </button>
           </div>
         </form>

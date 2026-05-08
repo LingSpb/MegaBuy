@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, FormEvent } from "react";
 import { useApp } from "../context/AppContext";
+import { useI18n } from "../i18n";
 import Modal from "./Modal";
 import {
   getProductDescription,
@@ -39,6 +40,7 @@ export default function Products({
     removeFromShoppingList,
     isInShoppingList,
   } = useApp();
+  const { t } = useI18n();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -161,23 +163,21 @@ export default function Products({
       );
 
       showToast(
-        editingId
-          ? "Product updated successfully!"
-          : "Product created successfully!",
+        editingId ? t("products.productUpdated") : t("products.productCreated"),
       );
       closeModal();
     } catch (error) {
-      showToast("Error: " + (error as Error).message, "error");
+      showToast(t("toast.error") + ": " + (error as Error).message, "error");
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this product?")) return;
+    if (!confirm(t("products.deleteConfirm"))) return;
     try {
       await deleteProduct(id);
-      showToast("Product deleted successfully!");
+      showToast(t("products.productDeleted"));
     } catch (error) {
-      showToast("Error: " + (error as Error).message, "error");
+      showToast(t("toast.error") + ": " + (error as Error).message, "error");
     }
   };
 
@@ -201,7 +201,7 @@ export default function Products({
 
     const order = orders.find((o) => o.id === addToOrderForm.orderId);
     if (!order) {
-      showToast("Order not found", "error");
+      showToast(t("common.noResults"), "error");
       return;
     }
 
@@ -228,11 +228,16 @@ export default function Products({
 
       const product = products.find((p) => p.id === addToOrderProductId);
       showToast(
-        `Added ${product?.id} - ${product ? product.name : "product"} to ${order.person_name}'s order!`,
+        t("products.addedToOrder")
+          .replace(
+            "{product}",
+            product ? `${product.id} - ${product.name}` : "product",
+          )
+          .replace("{person}", order.person_name),
       );
       closeAddToOrderModal();
     } catch (error) {
-      showToast("Error: " + (error as Error).message, "error");
+      showToast(t("toast.error") + ": " + (error as Error).message, "error");
     }
   };
 
@@ -273,7 +278,7 @@ export default function Products({
       }
       await fetchProducts();
     } catch (error) {
-      showToast("Error: " + (error as Error).message, "error");
+      showToast(t("toast.error") + ": " + (error as Error).message, "error");
     } finally {
       setImporting(false);
       // Reset file input so the same file can be selected again
@@ -286,7 +291,7 @@ export default function Products({
   return (
     <div className="tab active">
       <div className="tab-header">
-        <h2>Products</h2>
+        <h2>{t("products.title")}</h2>
         <div style={{ display: "flex", gap: "0.5rem" }}>
           <input
             type="file"
@@ -300,24 +305,21 @@ export default function Products({
             onClick={handleImportClick}
             disabled={importing}
           >
-            {importing ? "Importing..." : "Import Products"}
+            {importing ? t("products.importing") : t("products.importProducts")}
           </button>
           <button className="btn btn-primary" onClick={() => openModal()}>
-            + Add Product
+            + {t("products.newProduct")}
           </button>
         </div>
       </div>
 
-      <div className="tab-description">
-        Manage your product catalog. Add, edit, and delete products with pricing
-        information and selling types (by unit or by package).
-      </div>
+      <div className="tab-description">{t("products.pageDescription")}</div>
 
       <div className="filter-bar">
         <div className="search-box">
           <input
             type="text"
-            placeholder="Search products..."
+            placeholder={t("common.searchProducts")}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -327,7 +329,7 @@ export default function Products({
             value={categoryFilter}
             onChange={(e) => onCategoryFilterChange(e.target.value)}
           >
-            <option value="">All Categories</option>
+            <option value="">{t("products.allCategories")}</option>
             {categories.map((cat) => (
               <option key={cat.id} value={cat.id}>
                 {cat.name}
@@ -341,8 +343,8 @@ export default function Products({
         {filteredProducts.length === 0 ? (
           <div className="empty-message">
             {searchTerm || categoryFilter
-              ? "No products found"
-              : "No products yet. Create one to get started!"}
+              ? t("products.noProductsFound")
+              : t("products.noProductsYet")}
           </div>
         ) : (
           filteredProducts.map((product) => {
@@ -366,19 +368,25 @@ export default function Products({
                       {product.id} - {product.name}
                     </h3>
                     <p>
-                      <strong>Category:</strong> {categoryName}
+                      <strong>{t("common.category")}:</strong> {categoryName}
                     </p>
                     <p>{getProductDescription(product)}</p>
                   </div>
                   <div>
                     {isPackage ? (
                       <span className="selling-type-badge">
-                        Carton × {product.package_quantity}{" "}
-                        {product.unit_label || product.package_unit || "units"}
+                        {t("products.cartonLabel")
+                          .replace("{qty}", String(product.package_quantity))
+                          .replace(
+                            "{unit}",
+                            product.unit_label ||
+                              product.package_unit ||
+                              "units",
+                          )}
                       </span>
                     ) : (
                       <span className="selling-type-badge">
-                        Per {product.unit_label}
+                        {t("products.perUnit")} {product.unit_label}
                       </span>
                     )}
                     {displayPrice && (
@@ -388,7 +396,8 @@ export default function Products({
                     )}
                     {displayPriceWithVat && (
                       <span className="unit-price-vat-badge">
-                        {displayPriceWithVat} kr/{product.unit_label} incl. VAT
+                        {displayPriceWithVat} kr/{product.unit_label}{" "}
+                        {t("common.inclVat")}
                       </span>
                     )}
                   </div>
@@ -399,33 +408,33 @@ export default function Products({
                       className="btn btn-secondary"
                       onClick={() => removeFromShoppingList(product.id)}
                     >
-                      Remove from List
+                      {t("products.removeFromList")}
                     </button>
                   ) : (
                     <button
                       className="btn btn-success"
                       onClick={() => addToShoppingList(product.id)}
                     >
-                      Add to List
+                      {t("products.addToList")}
                     </button>
                   )}
                   <button
                     className="btn btn-primary"
                     onClick={() => openAddToOrderModal(product.id)}
                   >
-                    Add to Order
+                    {t("products.addToOrder")}
                   </button>
                   <button
                     className="btn btn-edit"
                     onClick={() => openModal(product)}
                   >
-                    Edit
+                    {t("common.edit")}
                   </button>
                   <button
                     className="btn btn-danger"
                     onClick={() => handleDelete(product.id)}
                   >
-                    Delete
+                    {t("common.delete")}
                   </button>
                 </div>
               </div>
@@ -438,22 +447,22 @@ export default function Products({
       <Modal
         isOpen={modalOpen}
         onClose={closeModal}
-        title={editingId ? "Edit Product" : "Add New Product"}
+        title={editingId ? t("products.editProduct") : t("products.newProduct")}
       >
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label htmlFor="productName">Product Name *</label>
+            <label htmlFor="productName">{t("products.productName")} *</label>
             <input
               type="text"
               id="productName"
-              placeholder="e.g., Rice ST25 18kg"
+              placeholder={t("products.placeholder.productName")}
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               required
             />
           </div>
           <div className="form-group">
-            <label htmlFor="productCategory">Category *</label>
+            <label htmlFor="productCategory">{t("products.category")} *</label>
             <select
               id="productCategory"
               value={form.category_id}
@@ -462,7 +471,7 @@ export default function Products({
               }
               required
             >
-              <option value="">Select a category</option>
+              <option value="">{t("products.selectCategory")}</option>
               {categories.map((cat) => (
                 <option key={cat.id} value={cat.id}>
                   {cat.name}
@@ -471,10 +480,12 @@ export default function Products({
             </select>
           </div>
           <div className="form-group">
-            <label htmlFor="productDescription">Description</label>
+            <label htmlFor="productDescription">
+              {t("products.description")}
+            </label>
             <textarea
               id="productDescription"
-              placeholder="Enter product description"
+              placeholder={t("products.placeholder.description")}
               rows={2}
               value={form.description}
               onChange={(e) =>
@@ -483,7 +494,7 @@ export default function Products({
             />
           </div>
           <div className="form-group">
-            <label htmlFor="sellingType">Selling Type *</label>
+            <label htmlFor="sellingType">{t("products.sellingType")} *</label>
             <select
               id="sellingType"
               value={form.selling_type}
@@ -495,27 +506,27 @@ export default function Products({
               }
               required
             >
-              <option value="unit">By Unit</option>
-              <option value="package">By Package</option>
+              <option value="unit">{t("products.perUnit")}</option>
+              <option value="package">{t("products.perPackage")}</option>
             </select>
           </div>
           <div className="form-group">
-            <label htmlFor="unitLabel">Unit Label *</label>
+            <label htmlFor="unitLabel">{t("products.unitLabel")} *</label>
             <input
               type="text"
               id="unitLabel"
-              placeholder="e.g., piece, bag, bottle, kg"
+              placeholder={t("products.placeholder.unitLabel")}
               value={form.unit_label}
               onChange={(e) => setForm({ ...form, unit_label: e.target.value })}
               required
             />
           </div>
           <div className="form-group">
-            <label htmlFor="productPrice">Unit Price (kr) *</label>
+            <label htmlFor="productPrice">{t("products.unitPrice")} *</label>
             <input
               type="number"
               id="productPrice"
-              placeholder="e.g., 32.08 (price per unit)"
+              placeholder={t("products.placeholder.price")}
               step="0.01"
               value={form.price}
               onChange={(e) => setForm({ ...form, price: e.target.value })}
@@ -524,11 +535,13 @@ export default function Products({
           </div>
           {form.selling_type === "package" && (
             <div className="form-group">
-              <label htmlFor="packageQuantity">Package Quantity *</label>
+              <label htmlFor="packageQuantity">
+                {t("products.packageQuantity")} *
+              </label>
               <input
                 type="number"
                 id="packageQuantity"
-                placeholder="e.g., 12 (units per carton)"
+                placeholder={t("products.placeholder.packageQuantity")}
                 step="0.01"
                 value={form.package_quantity}
                 onChange={(e) =>
@@ -544,10 +557,10 @@ export default function Products({
               className="btn btn-secondary"
               onClick={closeModal}
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button type="submit" className="btn btn-primary">
-              Save Product
+              {t("common.save")}
             </button>
           </div>
         </form>
@@ -557,15 +570,12 @@ export default function Products({
       <Modal
         isOpen={addToOrderModalOpen}
         onClose={closeAddToOrderModal}
-        title={`Add ${addToOrderProduct?.id || ""} - ${addToOrderProduct?.name || "Product"} to Order`}
+        title={`${t("addToOrder.title")}: ${addToOrderProduct?.id || ""} - ${addToOrderProduct?.name || ""}`}
       >
         {editableOrders.length === 0 ? (
           <>
             <div className="empty-message">
-              <p>
-                You need to create an order in the Orders tab before adding
-                products.
-              </p>
+              <p>{t("orders.description")}</p>
             </div>
             <div className="modal-footer">
               <button
@@ -573,14 +583,16 @@ export default function Products({
                 className="btn btn-secondary"
                 onClick={closeAddToOrderModal}
               >
-                Close
+                {t("common.close")}
               </button>
             </div>
           </>
         ) : (
           <form onSubmit={handleAddToOrder}>
             <div className="form-group">
-              <label htmlFor="addToOrderSelect">Select Order *</label>
+              <label htmlFor="addToOrderSelect">
+                {t("addToOrder.selectOrder")} *
+              </label>
               <select
                 id="addToOrderSelect"
                 value={addToOrderForm.orderId}
@@ -592,7 +604,7 @@ export default function Products({
                 }
                 required
               >
-                <option value="">Select an order</option>
+                <option value="">{t("addToOrder.selectOrder")}</option>
                 {editableOrders.map((order) => (
                   <option key={order.id} value={order.id}>
                     {order.person_name} ({order.state})
@@ -601,7 +613,9 @@ export default function Products({
               </select>
             </div>
             <div className="form-group">
-              <label htmlFor="addToOrderQuantity">Quantity *</label>
+              <label htmlFor="addToOrderQuantity">
+                {t("addToOrder.quantity")} *
+              </label>
               <input
                 type="number"
                 id="addToOrderQuantity"
@@ -618,7 +632,7 @@ export default function Products({
               />
             </div>
             <div className="form-group">
-              <label htmlFor="addToOrderUnit">Unit *</label>
+              <label htmlFor="addToOrderUnit">{t("addToOrder.unit")} *</label>
               <select
                 id="addToOrderUnit"
                 value={addToOrderForm.unit}
@@ -640,10 +654,10 @@ export default function Products({
                 className="btn btn-secondary"
                 onClick={closeAddToOrderModal}
               >
-                Cancel
+                {t("common.cancel")}
               </button>
               <button type="submit" className="btn btn-primary">
-                Add to Order
+                {t("products.addToOrder")}
               </button>
             </div>
           </form>
