@@ -473,7 +473,9 @@ export default function Orders() {
     items.forEach((item) => {
       const productKey =
         item.product_id || item.product_name || "unknown-product";
-      const productName = item.product_name || "Unknown product";
+      const productName = item.product_id
+        ? `${item.product_id} - ${item.product_name || "Unknown product"}`
+        : item.product_name || "Unknown product";
       const unit = String(item.unit || "unit");
       const quantity = Number(item.quantity) || 0;
 
@@ -537,8 +539,8 @@ export default function Orders() {
     const packageQuantity = product.package_quantity || 1;
     const isPackageProduct = product.selling_type === "package";
     const productInfoText = isPackageProduct
-      ? `${product.name}: carton × ${packageQuantity} ${packageUnit}`
-      : product.name;
+      ? `${product.id} - ${product.name}: carton × ${packageQuantity} ${packageUnit}`
+      : `${product.id} - ${product.name}`;
 
     const breakdown: Array<{
       personName: string;
@@ -575,7 +577,19 @@ export default function Orders() {
       .map(([unit, qty]: [string, number]) => `${qty} ${unit}`)
       .join(", ");
 
-    setProductDetailsData({ productInfoText, totalSum, breakdown, productId });
+    // product.price is the unit price; calculate carton price
+    const unitPrice = product.price;
+    const cartonPrice = Number((product.price * packageQuantity).toFixed(2));
+
+    setProductDetailsData({
+      productInfoText,
+      totalSum,
+      breakdown,
+      productId,
+      productPrice: cartonPrice,
+      unitPrice,
+      packageQuantity,
+    });
     setProductDetailsModalOpen(true);
   };
 
@@ -603,7 +617,9 @@ export default function Orders() {
     items.forEach((item) => {
       const productKey =
         item.product_id || item.product_name || "unknown-product";
-      const productName = item.product_name || "Unknown product";
+      const productName = item.product_id
+        ? `${item.product_id} - ${item.product_name || "Unknown product"}`
+        : item.product_name || "Unknown product";
       const unit = String(item.unit || "unit").toLowerCase();
       const quantity = Number(item.quantity) || 0;
       const product = products.find((p) => p.id === item.product_id);
@@ -1029,7 +1045,7 @@ export default function Orders() {
                       <option value="">Select product</option>
                       {products.map((p) => (
                         <option key={p.id} value={p.id}>
-                          {p.name}
+                          {p.id} - {p.name}
                         </option>
                       ))}
                     </select>
@@ -1130,6 +1146,13 @@ export default function Orders() {
           <div className="product-details-content">
             <div className="product-details-info">
               <strong>{productDetailsData.productInfoText}</strong>
+              <small
+                style={{ display: "block", color: "#fff", marginTop: "4px" }}
+              >
+                {productDetailsData.unitPrice} kr/unit |{" "}
+                {productDetailsData.productPrice} kr/carton (
+                {productDetailsData.packageQuantity} units)
+              </small>
             </div>
             <div className="product-details-total">
               <strong>Total: </strong>
@@ -1140,7 +1163,27 @@ export default function Orders() {
               <div className="breakdown-list">
                 {productDetailsData.breakdown.length > 0 ? (
                   productDetailsData.breakdown.map((b, i) => (
-                    <span key={i} className="product-breakdown-item">
+                    <span
+                      key={i}
+                      className="product-breakdown-item child-order-link"
+                      onClick={() => {
+                        closeProductDetailsModal();
+                        const element = document.getElementById(
+                          `order-${b.orderId}`,
+                        );
+                        if (element) {
+                          element.scrollIntoView({
+                            behavior: "smooth",
+                            block: "center",
+                          });
+                          element.classList.add("highlight-order");
+                          setTimeout(
+                            () => element.classList.remove("highlight-order"),
+                            2000,
+                          );
+                        }
+                      }}
+                    >
                       <strong>{b.personName}</strong> ({b.itemsSummary})
                     </span>
                   ))

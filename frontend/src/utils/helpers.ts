@@ -53,8 +53,13 @@ export function getUnitPrice(
     ? packageUnit.slice(0, -1)
     : packageUnit;
 
+  // product.price is the unit price (price per single unit)
+  const unitPrice = Number(product.price);
+  const packageQuantity = Number(product.package_quantity) || 1;
+
   if (normalizedUnit === "carton") {
-    return Number(product.price);
+    // Carton price = unit price × package quantity
+    return Number((unitPrice * packageQuantity).toFixed(2));
   }
 
   if (
@@ -62,18 +67,12 @@ export function getUnitPrice(
     normalizedUnit === packageUnit ||
     normalizedUnit === singularPackageUnit
   ) {
-    if (product.selling_type === "package") {
-      if (product.unit_price) {
-        return Number(product.unit_price);
-      }
-      const packageQuantity = Number(product.package_quantity) || 1;
-      return Number((Number(product.price) / packageQuantity).toFixed(2));
-    }
-    return Number(product.price);
+    // Return unit price directly
+    return unitPrice;
   }
 
   if (normalizedUnit === "unit" && product.selling_type === "unit") {
-    return Number(product.price);
+    return unitPrice;
   }
 
   return null;
@@ -106,13 +105,12 @@ export function getProductDescription(product: ProductWithMetadata): string {
         ? pkgUnit
         : "units");
 
-    let unitPrice = product.unit_price;
-    if (!unitPrice && product.price && packageQuantity > 0) {
-      unitPrice = Number((product.price / packageQuantity).toFixed(2));
-    }
+    // product.price is the unit price
+    const unitPrice = product.price;
+    const cartonPrice = Number((unitPrice * packageQuantity).toFixed(2));
 
     if (unitPrice) {
-      return `${unitPrice} kr/${unitLabel}. Sold by carton (${packageQuantity} ${packageUnit} per carton)`;
+      return `${unitPrice} kr/${unitLabel}. Carton: ${cartonPrice} kr (${packageQuantity} ${packageUnit})`;
     } else {
       return `Sold by carton (${packageQuantity} ${packageUnit} per carton)`;
     }
@@ -151,7 +149,9 @@ export function formatOrderItemsSummary(items: OrderItem[]): string {
   items.forEach((item) => {
     const productKey =
       item.product_id || item.product_name || "unknown-product";
-    const productName = item.product_name || "Unknown product";
+    const productName = item.product_id
+      ? `${item.product_id} - ${item.product_name || "Unknown product"}`
+      : item.product_name || "Unknown product";
     const unit = String(item.unit || "unit");
     const quantity = Number(item.quantity) || 0;
 

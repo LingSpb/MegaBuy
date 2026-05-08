@@ -2,8 +2,13 @@ require("dotenv").config();
 const express = require("express");
 const bodyParser = require("body-parser");
 const path = require("path");
+const multer = require("multer");
+const XLSX = require("xlsx");
 const supabase = require("./lib/supabase");
 const app = express();
+
+// Configure multer for file uploads (memory storage)
+const upload = multer({ storage: multer.memoryStorage() });
 
 // Middleware
 app.use(bodyParser.json());
@@ -54,8 +59,13 @@ function getProductUnitPrice(product, unit) {
     ? normalizedPackageUnit.slice(0, -1)
     : normalizedPackageUnit;
 
+  // product.price is the unit price (price per single unit)
+  const unitPrice = Number(product.price);
+  const packageQuantity = Number(product.package_quantity) || 1;
+
   if (normalizedUnit === "carton") {
-    return Number(product.price);
+    // Carton price = unit price × package quantity
+    return Number((unitPrice * packageQuantity).toFixed(2));
   }
 
   if (
@@ -63,15 +73,8 @@ function getProductUnitPrice(product, unit) {
     normalizedUnit === normalizedPackageUnit ||
     normalizedUnit === singularPackageUnit
   ) {
-    if (product.selling_type === "package") {
-      if (product.unit_price) {
-        return Number(product.unit_price);
-      }
-      // Calculate unit price from carton price / package quantity
-      const packageQuantity = Number(product.package_quantity) || 1;
-      return Number((Number(product.price) / packageQuantity).toFixed(2));
-    }
-    return Number(product.price);
+    // Return unit price directly
+    return unitPrice;
   }
 
   return null;
@@ -930,6 +933,164 @@ app.put("/api/products/:id", async (req, res) => {
     res
       .status(500)
       .json({ error: "Failed to update product: " + error.message });
+  }
+});
+
+// Import products from xlsx
+app.post("/api/products/import", upload.single("file"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+
+    // Parse xlsx file from buffer
+    const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(sheet);
+
+    if (rows.length === 0) {
+      return res.status(400).json({ error: "No data found in file" });
+    }
+
+    // Expected columns: product code (id), name, brand, price, package_quantity
+    // Support various column name formats
+    const findColumn = (row, ...names) => {
+      for (const name of names) {
+        const key = Object.keys(row).find(
+          (k) =>
+            k.toLowerCase().replace(/[_\s]/g, "") ===
+            name.toLowerCase().replace(/[_\s]/g, ""),
+        );
+        if (key !== undefined) return row[key];
+      }
+      return undefined;
+    };
+
+    const results = { created: 0, updated: 0, errors: [] };
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const rowNum = i + 2; // +2 because row 1 is header, and we're 0-indexed
+
+      const productCode = String(
+        findColumn(
+          row,
+          "id",
+          "productcode",
+          "code",
+          "product_code",
+          "Mã SP",
+          "masp",
+        ) || "",
+      ).trim();
+      const name = String(
+        findColumn(
+          row,
+          "name",
+          "productname",
+          "product_name",
+          "Tên sản phẩm",
+          "Tên sản phẩm (VI)",
+          "tensanpham",
+        ) || "",
+      ).trim();
+      const brand = String(
+        findColumn(row, "brand", "Thương hiệu", "thuonghieu") || "",
+      ).trim();
+      const priceRaw = findColumn(row, "price", "Giá", "Giá (SEK)", "gia");
+      const packageQuantityRaw = findColumn(
+        row,
+        "packagequantity",
+        "package_quantity",
+        "qty",
+        "quantity",
+        "Quy cách",
+        "quycach",
+      );
+
+      if (!productCode) {
+        results.errors.push(`Row ${rowNum}: Missing product code`);
+        continue;
+      }
+
+      if (!name) {
+        results.errors.push(`Row ${rowNum}: Missing product name`);
+        continue;
+      }
+
+      const unitPrice = parseFloat(priceRaw);
+      if (isNaN(unitPrice) || unitPrice < 0) {
+        results.errors.push(`Row ${rowNum}: Invalid price "${priceRaw}"`);
+        continue;
+      }
+
+      const packageQuantity = parseFloat(packageQuantityRaw);
+      if (isNaN(packageQuantity) || packageQuantity <= 0) {
+        results.errors.push(
+          `Row ${rowNum}: Invalid package quantity "${packageQuantityRaw}"`,
+        );
+        continue;
+      }
+
+      // Store unit price directly (price per unit, not per carton)
+
+      // Check if product exists
+      const { data: existingProduct } = await supabase
+        .from("products")
+        .select("id")
+        .eq("id", productCode)
+        .single();
+
+      if (existingProduct) {
+        // Update existing product
+        const { error: updateError } = await supabase
+          .from("products")
+          .update({
+            name,
+            brand,
+            price: unitPrice,
+            package_quantity: packageQuantity,
+          })
+          .eq("id", productCode);
+
+        if (updateError) {
+          results.errors.push(
+            `Row ${rowNum}: Update failed - ${updateError.message}`,
+          );
+        } else {
+          results.updated++;
+        }
+      } else {
+        // Create new product
+        const { error: insertError } = await supabase.from("products").insert({
+          id: productCode,
+          name,
+          brand,
+          price: unitPrice,
+          package_quantity: packageQuantity,
+        });
+
+        if (insertError) {
+          results.errors.push(
+            `Row ${rowNum}: Insert failed - ${insertError.message}`,
+          );
+        } else {
+          results.created++;
+        }
+      }
+    }
+
+    res.json({
+      message: `Import complete: ${results.created} created, ${results.updated} updated`,
+      created: results.created,
+      updated: results.updated,
+      errors: results.errors,
+    });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ error: "Failed to import products: " + error.message });
   }
 });
 

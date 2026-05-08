@@ -1,4 +1,4 @@
-import { useState, useMemo, FormEvent } from "react";
+import { useState, useMemo, useRef, FormEvent } from "react";
 import { useApp } from "../context/AppContext";
 import Modal from "./Modal";
 import {
@@ -33,11 +33,15 @@ export default function Products({
     showToast,
     getCategoryVat,
     calculatePriceWithVat,
+    fetchProducts,
   } = useApp();
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
   const [addToOrderModalOpen, setAddToOrderModalOpen] = useState(false);
   const [addToOrderProductId, setAddToOrderProductId] = useState<string | null>(
     null,
@@ -91,14 +95,8 @@ export default function Products({
   const openModal = (product: ProductWithMetadata | null = null) => {
     if (product) {
       setEditingId(product.id);
-      let displayPrice: number | string = product.price;
-      if (product.selling_type === "package") {
-        displayPrice =
-          product.unit_price ||
-          (product.package_quantity && product.package_quantity > 0
-            ? Number((product.price / product.package_quantity).toFixed(2))
-            : product.price);
-      }
+      // product.price is the unit price
+      const displayPrice = product.price;
       setForm({
         name: product.name,
         category_id: product.category_id,
@@ -224,7 +222,7 @@ export default function Products({
 
       const product = products.find((p) => p.id === addToOrderProductId);
       showToast(
-        `Added ${product ? product.name : "product"} to ${order.person_name}'s order!`,
+        `Added ${product?.id} - ${product ? product.name : "product"} to ${order.person_name}'s order!`,
       );
       closeAddToOrderModal();
     } catch (error) {
@@ -240,13 +238,68 @@ export default function Products({
     return addToOrderProduct ? getProductUnits(addToOrderProduct) : ["carton"];
   }, [addToOrderProduct]);
 
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    setImporting(true);
+    try {
+      const res = await fetch("/api/products/import", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Import failed");
+      }
+
+      showToast(data.message);
+      if (data.errors && data.errors.length > 0) {
+        console.warn("Import warnings:", data.errors);
+      }
+      await fetchProducts();
+    } catch (error) {
+      showToast("Error: " + (error as Error).message, "error");
+    } finally {
+      setImporting(false);
+      // Reset file input so the same file can be selected again
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
   return (
     <div className="tab active">
       <div className="tab-header">
         <h2>Products</h2>
-        <button className="btn btn-primary" onClick={() => openModal()}>
-          + Add Product
-        </button>
+        <div style={{ display: "flex", gap: "0.5rem" }}>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            accept=".xlsx,.xls"
+            style={{ display: "none" }}
+          />
+          <button
+            className="btn btn-primary"
+            onClick={handleImportClick}
+            disabled={importing}
+          >
+            {importing ? "Importing..." : "Import Products"}
+          </button>
+          <button className="btn btn-primary" onClick={() => openModal()}>
+            + Add Product
+          </button>
+        </div>
       </div>
 
       <div className="tab-description">
@@ -289,7 +342,8 @@ export default function Products({
           filteredProducts.map((product) => {
             const vat = getCategoryVat(product.category_id);
             const isPackage = product.selling_type === "package";
-            const displayPrice = isPackage ? product.unit_price : product.price;
+            // product.price is the unit price
+            const displayPrice = product.price;
             const displayPriceWithVat = displayPrice
               ? calculatePriceWithVat(displayPrice, vat)
               : null;
@@ -302,7 +356,9 @@ export default function Products({
               <div key={product.id} className="card">
                 <div className="product-info">
                   <div className="card-content">
-                    <h3>{product.name}</h3>
+                    <h3>
+                      {product.id} - {product.name}
+                    </h3>
                     <p>
                       <strong>Category:</strong> {categoryName}
                     </p>
@@ -480,7 +536,7 @@ export default function Products({
       <Modal
         isOpen={addToOrderModalOpen}
         onClose={closeAddToOrderModal}
-        title={`Add ${addToOrderProduct?.name || "Product"} to Order`}
+        title={`Add ${addToOrderProduct?.id || ""} - ${addToOrderProduct?.name || "Product"} to Order`}
       >
         {editableOrders.length === 0 ? (
           <>

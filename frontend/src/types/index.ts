@@ -107,6 +107,9 @@ export interface LoadingState {
 export interface ProductDetailsData {
   productInfoText: string;
   totalSum: string;
+  productPrice: number;
+  unitPrice: number;
+  packageQuantity: number;
   breakdown: Array<{
     personName: string;
     orderId: string;
