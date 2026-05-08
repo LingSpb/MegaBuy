@@ -6,10 +6,10 @@ import Products from "./components/Products";
 import Orders from "./components/Orders";
 import "./App.css";
 
-type TabName = "categories" | "products" | "orders";
+type TabName = "orders" | "categories" | "products";
 
 function AppContent() {
-  const [activeTab, setActiveTab] = useState<TabName>("categories");
+  const [activeTab, setActiveTab] = useState<TabName>("orders");
   const [categoryFilter, setCategoryFilter] = useState("");
 
   const handleNavigateToProducts = useCallback((categoryId: string) => {
@@ -30,6 +30,12 @@ function AppContent() {
         <h1>MegaBuy</h1>
         <div className="nav-links">
           <button
+            className={`nav-btn ${activeTab === "orders" ? "active" : ""}`}
+            onClick={() => handleTabChange("orders")}
+          >
+            Orders
+          </button>
+          <button
             className={`nav-btn ${activeTab === "categories" ? "active" : ""}`}
             onClick={() => handleTabChange("categories")}
           >
@@ -41,15 +47,10 @@ function AppContent() {
           >
             Products
           </button>
-          <button
-            className={`nav-btn ${activeTab === "orders" ? "active" : ""}`}
-            onClick={() => handleTabChange("orders")}
-          >
-            Orders
-          </button>
         </div>
       </nav>
 
+      {activeTab === "orders" && <Orders />}
       {activeTab === "categories" && (
         <Categories onNavigateToProducts={handleNavigateToProducts} />
       )}
@@ -59,7 +60,6 @@ function AppContent() {
           onCategoryFilterChange={setCategoryFilter}
         />
       )}
-      {activeTab === "orders" && <Orders />}
 
       <Toast />
     </div>
