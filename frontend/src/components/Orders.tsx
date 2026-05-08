@@ -20,6 +20,7 @@ import type {
 interface OrderFormState {
   person_name: string;
   order_date: string;
+  secret_phrase: string;
   items: OrderItemFormData[];
 }
 
@@ -54,6 +55,7 @@ export default function Orders() {
   const [orderForm, setOrderForm] = useState<OrderFormState>({
     person_name: "",
     order_date: new Date().toISOString().split("T")[0],
+    secret_phrase: "",
     items: [{ product_id: "", quantity: 1, unit: "carton" }],
   });
   const [orderModalError, setOrderModalError] = useState<string | null>(null);
@@ -140,6 +142,7 @@ export default function Orders() {
       setOrderForm({
         person_name: order.person_name,
         order_date: order.order_date,
+        secret_phrase: "", // Secret phrase is not editable after creation
         items: order.items.map((item) => ({
           product_id: item.product_id,
           quantity: item.quantity,
@@ -151,6 +154,7 @@ export default function Orders() {
       setOrderForm({
         person_name: "",
         order_date: new Date().toISOString().split("T")[0],
+        secret_phrase: "",
         items: [{ product_id: "", quantity: 1, unit: "carton" }],
       });
     }
@@ -271,6 +275,7 @@ export default function Orders() {
         {
           person_name: orderForm.person_name.trim(),
           order_date: orderForm.order_date,
+          secret_phrase: orderForm.secret_phrase || undefined,
           items: aggregatedItems,
         },
         editingOrderId,
@@ -291,18 +296,46 @@ export default function Orders() {
     const order = orders.find((o) => o.id === orderId);
     if (!order) return;
 
-    const confirmMsg =
-      order.order_type === "mega_buy" && order.state === "Closed"
-        ? "Delete this Closed Mega Buy order? This will also delete all its child orders."
-        : "Are you sure you want to delete this draft order?";
+    let secretPhrase: string | undefined;
 
-    if (!confirm(confirmMsg)) return;
+    // Check if order has a secret phrase
+    if (order.has_secret_phrase) {
+      let promptMessage = `Enter the secret phrase to delete ${order.person_name}'s order:`;
 
-    try {
-      await deleteOrder(orderId);
-      showToast("Order deleted successfully!");
-    } catch (error) {
-      showToast("Error: " + (error as Error).message, "error");
+      // Keep prompting until correct or cancelled
+      while (true) {
+        const enteredPhrase = prompt(promptMessage);
+        if (enteredPhrase === null) return; // User cancelled
+        secretPhrase = enteredPhrase;
+
+        try {
+          await deleteOrder(orderId, secretPhrase);
+          showToast("Order deleted successfully!");
+          return;
+        } catch (error) {
+          const errorMessage = (error as Error).message;
+          if (errorMessage.includes("Incorrect secret phrase")) {
+            promptMessage = `Incorrect phrase. Try again to delete ${order.person_name}'s order:`;
+            continue;
+          }
+          showToast("Error: " + errorMessage, "error");
+          return;
+        }
+      }
+    } else {
+      const confirmMsg =
+        order.order_type === "mega_buy" && order.state === "Closed"
+          ? "Delete this Closed Mega Buy order? This will also delete all its child orders."
+          : "Are you sure you want to delete this draft order?";
+
+      if (!confirm(confirmMsg)) return;
+
+      try {
+        await deleteOrder(orderId, secretPhrase);
+        showToast("Order deleted successfully!");
+      } catch (error) {
+        showToast("Error: " + (error as Error).message, "error");
+      }
     }
   };
 
@@ -943,6 +976,22 @@ export default function Orders() {
               }
             />
           </div>
+          {!editingOrderId && (
+            <div className="form-group">
+              <label htmlFor="orderSecretPhrase">
+                Secret Phrase (for delete protection)
+              </label>
+              <input
+                type="text"
+                id="orderSecretPhrase"
+                placeholder="e.g., my-secret-123"
+                value={orderForm.secret_phrase}
+                onChange={(e) =>
+                  setOrderForm({ ...orderForm, secret_phrase: e.target.value })
+                }
+              />
+            </div>
+          )}
 
           <div className="order-items-section">
             <div className="order-items-header">

@@ -396,10 +396,14 @@ async function fetchOrders() {
     });
   }
 
-  return orders.map((order) => ({
-    ...order,
-    items: itemsByOrder[order.id] || [],
-  }));
+  return orders.map((order) => {
+    const { secret_phrase, ...rest } = order;
+    return {
+      ...rest,
+      has_secret_phrase: Boolean(secret_phrase),
+      items: itemsByOrder[order.id] || [],
+    };
+  });
 }
 
 async function fetchOrderById(orderId) {
@@ -1000,14 +1004,19 @@ app.get("/api/orders/:id", async (req, res) => {
       return res.status(404).json({ error: "Order not found" });
     }
     const products = await fetchProducts();
-    res.json(hydrateOrderPricing(order, products));
+    const hydrated = hydrateOrderPricing(order, products);
+    const { secret_phrase, ...orderResponse } = hydrated;
+    res.json({
+      ...orderResponse,
+      has_secret_phrase: Boolean(secret_phrase),
+    });
   } catch (error) {
     res.status(500).json({ error: "Failed to load order: " + error.message });
   }
 });
 
 app.post("/api/orders", async (req, res) => {
-  const { person_name, order_date, items } = req.body;
+  const { person_name, order_date, secret_phrase, items } = req.body;
 
   if (!person_name || person_name.trim() === "") {
     return res.status(400).json({ error: "Person name is required" });
@@ -1094,6 +1103,7 @@ app.post("/api/orders", async (req, res) => {
       person_name: person_name.trim(),
       order_date: order_date || new Date().toISOString().split("T")[0],
       state: "Draft",
+      secret_phrase: secret_phrase || null,
       total_amount: Number(orderTotal.toFixed(2)),
       created_at: now,
       updated_at: now,
@@ -1109,8 +1119,10 @@ app.post("/api/orders", async (req, res) => {
 
     await saveOrderItems(orderId, orderItems);
 
+    const { secret_phrase: _, ...orderResponse } = savedOrder;
     res.status(201).json({
-      ...savedOrder,
+      ...orderResponse,
+      has_secret_phrase: Boolean(savedOrder.secret_phrase),
       items: orderItems,
     });
   } catch (error) {
@@ -1224,8 +1236,10 @@ app.put("/api/orders/:id", async (req, res) => {
 
     await saveOrderItems(req.params.id, orderItems);
 
+    const { secret_phrase: _, ...orderResponse } = updatedOrder;
     res.json({
-      ...updatedOrder,
+      ...orderResponse,
+      has_secret_phrase: Boolean(updatedOrder.secret_phrase),
       items: orderItems,
     });
   } catch (error) {
@@ -1301,8 +1315,10 @@ app.post("/api/orders/mega-buy", async (req, res) => {
 
     await saveOrderItems(orderId, aggregated.items);
 
+    const { secret_phrase, ...orderResponse } = savedOrder;
     res.status(201).json({
-      ...savedOrder,
+      ...orderResponse,
+      has_secret_phrase: Boolean(secret_phrase),
       items: aggregated.items,
     });
   } catch (error) {
@@ -1418,8 +1434,10 @@ app.post("/api/orders/:id/recalculate", async (req, res) => {
 
     await saveOrderItems(req.params.id, aggregated.items);
 
+    const { secret_phrase, ...orderResponse } = updatedOrder;
     res.json({
-      ...updatedOrder,
+      ...orderResponse,
+      has_secret_phrase: Boolean(secret_phrase),
       items: aggregated.items,
     });
   } catch (error) {
@@ -1824,6 +1842,14 @@ app.delete("/api/orders/:id", async (req, res) => {
 
     if (!order) {
       return res.status(404).json({ error: "Order not found" });
+    }
+
+    // Validate secret phrase if order has one
+    if (order.secret_phrase) {
+      const { secret_phrase } = req.body || {};
+      if (!secret_phrase || secret_phrase !== order.secret_phrase) {
+        return res.status(403).json({ error: "Incorrect secret phrase" });
+      }
     }
 
     if (order.order_type === "mega_buy" && order.state === "Closed") {

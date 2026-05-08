@@ -53,6 +53,7 @@ export interface Order {
   locked_at?: string | null;
   placed_at?: string | null;
   delivered_at?: string | null;
+  has_secret_phrase?: boolean;
   items: OrderItem[];
   created_at?: string;
   updated_at?: string;
@@ -78,6 +79,7 @@ export interface ProductFormData {
 export interface OrderFormData {
   person_name: string;
   order_date: string;
+  secret_phrase?: string;
   items: OrderItemFormData[];
 }
 

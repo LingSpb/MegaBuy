@@ -38,7 +38,7 @@ interface AppContextValue {
   deleteProduct: (id: string) => Promise<void>;
   fetchOrders: () => Promise<void>;
   saveOrder: (order: OrderFormData, id?: string | null) => Promise<Order>;
-  deleteOrder: (id: string) => Promise<void>;
+  deleteOrder: (id: string, secretPhrase?: string) => Promise<void>;
   createMegaBuyOrder: (
     personName: string,
     orderDate: string,
@@ -203,8 +203,12 @@ export function AppProvider({ children }: AppProviderProps) {
   );
 
   const deleteOrder = useCallback(
-    async (id: string) => {
-      const res = await fetch(`/api/orders/${id}`, { method: "DELETE" });
+    async (id: string, secretPhrase?: string) => {
+      const res = await fetch(`/api/orders/${id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ secret_phrase: secretPhrase }),
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to delete order");
       await fetchOrders();
