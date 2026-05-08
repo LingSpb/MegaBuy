@@ -473,6 +473,35 @@ body {
   font-weight: 500;
 }
 
+.child-order-link {
+  cursor: pointer;
+  transition:
+    background-color 0.2s,
+    transform 0.2s;
+}
+
+.child-order-link:hover {
+  background: #4299e1;
+  color: white;
+  transform: scale(1.05);
+}
+
+.highlight-order {
+  animation: highlight-pulse 2s ease-out;
+  box-shadow: 0 0 0 3px #4299e1;
+}
+
+@keyframes highlight-pulse {
+  0% {
+    box-shadow: 0 0 0 3px #4299e1;
+    background-color: #ebf8ff;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+    background-color: white;
+  }
+}
+
 .mega-products-grid {
   display: grid;
   grid-template-columns: repeat(5, 1fr);

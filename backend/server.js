@@ -1020,6 +1020,19 @@ app.post("/api/orders", async (req, res) => {
   }
 
   try {
+    // Check for duplicate person name (case-insensitive, only for normal orders)
+    const { data: existingOrders } = await supabase
+      .from("orders")
+      .select("id, person_name")
+      .ilike("person_name", person_name.trim())
+      .is("order_type", null);
+
+    if (existingOrders && existingOrders.length > 0) {
+      return res.status(400).json({
+        error: `An order for "${person_name.trim()}" already exists`,
+      });
+    }
+
     const products = await fetchProducts();
     const orderItems = [];
     let orderTotal = 0;

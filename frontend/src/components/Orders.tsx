@@ -56,6 +56,7 @@ export default function Orders() {
     order_date: new Date().toISOString().split("T")[0],
     items: [{ product_id: "", quantity: 1, unit: "carton" }],
   });
+  const [orderModalError, setOrderModalError] = useState<string | null>(null);
 
   // Filter and sort orders
   const {
@@ -153,12 +154,14 @@ export default function Orders() {
         items: [{ product_id: "", quantity: 1, unit: "carton" }],
       });
     }
+    setOrderModalError(null);
     setOrderModalOpen(true);
   };
 
   const closeOrderModal = () => {
     setOrderModalOpen(false);
     setEditingOrderId(null);
+    setOrderModalError(null);
   };
 
   const addOrderItem = () => {
@@ -221,7 +224,22 @@ export default function Orders() {
     e.preventDefault();
 
     if (!orderForm.person_name.trim()) {
-      showToast("Person name is required", "error");
+      setOrderModalError("Person name is required");
+      return;
+    }
+
+    // Check for duplicate person name (only for new orders or if name changed)
+    const trimmedName = orderForm.person_name.trim().toLowerCase();
+    const existingOrder = orders.find(
+      (o) =>
+        o.person_name.toLowerCase() === trimmedName &&
+        o.id !== editingOrderId &&
+        o.order_type !== "mega_buy",
+    );
+    if (existingOrder) {
+      setOrderModalError(
+        `An order for "${orderForm.person_name.trim()}" already exists`,
+      );
       return;
     }
 
@@ -240,9 +258,8 @@ export default function Orders() {
           item.quantity <= 0,
       )
     ) {
-      showToast(
+      setOrderModalError(
         "Each order item must have product, quantity and unit",
-        "error",
       );
       return;
     }
@@ -266,7 +283,7 @@ export default function Orders() {
       );
       closeOrderModal();
     } catch (error) {
-      showToast("Error: " + (error as Error).message, "error");
+      setOrderModalError((error as Error).message);
     }
   };
 
@@ -638,19 +655,22 @@ export default function Orders() {
     return (
       <div
         key={order.id}
+        id={`order-${order.id}`}
         className={`card order-card ${isMegaBuy ? "mega-order-card" : ""}`}
       >
         <div className="card-content">
           <div className="order-header">
-            <h3>{order.id}</h3>
+            <h3>{isMegaBuy ? order.id : order.person_name}</h3>
             <span className={`state-badge ${getOrderStateClass(order.state)}`}>
               {order.state}
             </span>
             {isMegaBuy && <span className="selling-type-badge">Mega Buy</span>}
           </div>
-          <p>
-            <strong>Person:</strong> {order.person_name}
-          </p>
+          {isMegaBuy && (
+            <p>
+              <strong>Person:</strong> {order.person_name}
+            </p>
+          )}
           <p>
             <strong>Updated:</strong>{" "}
             {formatOrderDate(order.updated_at || order.order_date)}
@@ -676,11 +696,36 @@ export default function Orders() {
                 <strong>Child Orders:</strong>
                 <div className="mega-child-orders">
                   {childOrderIds.length > 0
-                    ? childOrderIds.map((id) => (
-                        <span key={id} className="child-order-tag">
-                          {id}
-                        </span>
-                      ))
+                    ? childOrderIds.map((id) => {
+                        const childOrder = orders.find((o) => o.id === id);
+                        return (
+                          <span
+                            key={id}
+                            className="child-order-tag child-order-link"
+                            onClick={() => {
+                              const element = document.getElementById(
+                                `order-${id}`,
+                              );
+                              if (element) {
+                                element.scrollIntoView({
+                                  behavior: "smooth",
+                                  block: "center",
+                                });
+                                element.classList.add("highlight-order");
+                                setTimeout(
+                                  () =>
+                                    element.classList.remove("highlight-order"),
+                                  2000,
+                                );
+                              }
+                            }}
+                            style={{ cursor: "pointer" }}
+                            title={`Click to view ${childOrder?.person_name || id}'s order`}
+                          >
+                            {childOrder?.person_name || id}
+                          </span>
+                        );
+                      })
                     : "N/A"}
                 </div>
               </div>
@@ -860,6 +905,20 @@ export default function Orders() {
         }
       >
         <form onSubmit={handleOrderSubmit}>
+          {orderModalError && (
+            <div
+              className="error-message"
+              style={{
+                color: "red",
+                marginBottom: "1rem",
+                padding: "0.5rem",
+                backgroundColor: "#ffe6e6",
+                borderRadius: "4px",
+              }}
+            >
+              {orderModalError}
+            </div>
+          )}
           <div className="form-group">
             <label htmlFor="orderPersonName">Person Name *</label>
             <input
