@@ -1,6 +1,7 @@
 import { useState, useMemo, FormEvent } from "react";
 import { useApp } from "../context/AppContext";
 import Modal from "./Modal";
+import { removeVietnameseTones } from "../utils/helpers";
 import type { Category, CategoryFormData } from "../types";
 
 interface CategoriesProps {
@@ -20,11 +21,13 @@ export default function Categories({ onNavigateToProducts }: CategoriesProps) {
 
   const filteredCategories = useMemo(() => {
     if (!searchTerm) return categories;
-    const term = searchTerm.toLowerCase();
+    const term = removeVietnameseTones(searchTerm.toLowerCase());
     return categories.filter(
       (cat) =>
-        cat.name.toLowerCase().includes(term) ||
-        (cat.description || "").toLowerCase().includes(term),
+        removeVietnameseTones(cat.name.toLowerCase()).includes(term) ||
+        removeVietnameseTones((cat.description || "").toLowerCase()).includes(
+          term,
+        ),
     );
   }, [categories, searchTerm]);
 

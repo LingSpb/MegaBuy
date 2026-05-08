@@ -5,6 +5,7 @@ import {
   getProductDescription,
   getProductUnits,
   aggregateOrderItems,
+  removeVietnameseTones,
 } from "../utils/helpers";
 import type { ProductWithMetadata, ProductFormData } from "../types";
 
@@ -69,14 +70,16 @@ export default function Products({
     }
 
     if (searchTerm) {
-      const term = searchTerm.toLowerCase();
+      const term = removeVietnameseTones(searchTerm.toLowerCase());
       result = result.filter((p) => {
         const category = categories.find((c) => c.id === p.category_id);
         const categoryName = category?.name || "";
         return (
-          p.name.toLowerCase().includes(term) ||
-          (p.description || "").toLowerCase().includes(term) ||
-          categoryName.toLowerCase().includes(term)
+          removeVietnameseTones(p.name.toLowerCase()).includes(term) ||
+          removeVietnameseTones((p.description || "").toLowerCase()).includes(
+            term,
+          ) ||
+          removeVietnameseTones(categoryName.toLowerCase()).includes(term)
         );
       });
     }

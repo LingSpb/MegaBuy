@@ -5,6 +5,15 @@ import type {
   OrderItemFormData,
 } from "../types";
 
+// Remove Vietnamese diacritics for search
+export function removeVietnameseTones(str: string): string {
+  return str
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "D");
+}
+
 export function normalizeUnit(value: string | undefined | null): string {
   return String(value || "")
     .trim()
