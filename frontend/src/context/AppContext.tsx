@@ -21,6 +21,7 @@ interface AppContextValue {
   categories: Category[];
   products: ProductWithMetadata[];
   orders: Order[];
+  shoppingList: string[];
   loading: LoadingState;
   toast: ToastState;
   showToast: (message: string, type?: "success" | "error") => void;
@@ -50,6 +51,15 @@ interface AppContextValue {
   closeMegaBuyOrder: (id: string) => Promise<Order>;
   getCategoryVat: (categoryId: string) => number;
   calculatePriceWithVat: (price: number, vatPercent: number) => number;
+  fetchShoppingList: () => Promise<void>;
+  addToShoppingList: (
+    productId: string,
+    addedBy?: string,
+    note?: string,
+  ) => Promise<void>;
+  removeFromShoppingList: (productId: string) => Promise<void>;
+  clearShoppingList: () => Promise<void>;
+  isInShoppingList: (productId: string) => boolean;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -62,6 +72,7 @@ export function AppProvider({ children }: AppProviderProps) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<ProductWithMetadata[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [shoppingList, setShoppingList] = useState<string[]>([]);
   const [loading, setLoading] = useState<LoadingState>({
     categories: false,
     products: false,
@@ -283,13 +294,6 @@ export function AppProvider({ children }: AppProviderProps) {
     [fetchOrders],
   );
 
-  // Load initial data
-  useEffect(() => {
-    fetchCategories();
-    fetchProducts();
-    fetchOrders();
-  }, [fetchCategories, fetchProducts, fetchOrders]);
-
   // Helper functions
   const getCategoryVat = useCallback(
     (categoryId: string): number => {
@@ -306,10 +310,96 @@ export function AppProvider({ children }: AppProviderProps) {
     [],
   );
 
+  // Shopping list (stores product IDs)
+  const fetchShoppingList = useCallback(async () => {
+    try {
+      const res = await fetch("/api/shopping-list");
+      if (!res.ok) throw new Error("Failed to load shopping list");
+      const data = await res.json();
+      // Extract product IDs from response
+      setShoppingList(
+        data.map((item: { product_id: string }) => item.product_id),
+      );
+    } catch (error) {
+      showToast(
+        "Error loading shopping list: " + (error as Error).message,
+        "error",
+      );
+    }
+  }, [showToast]);
+
+  const addToShoppingList = useCallback(
+    async (productId: string, addedBy?: string, note?: string) => {
+      try {
+        const res = await fetch("/api/shopping-list", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            product_id: productId,
+            added_by: addedBy,
+            note,
+          }),
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error || "Failed to add to shopping list");
+        }
+        setShoppingList((prev) => [productId, ...prev]);
+        showToast("Added to shopping list");
+      } catch (error) {
+        showToast((error as Error).message, "error");
+      }
+    },
+    [showToast],
+  );
+
+  const removeFromShoppingList = useCallback(
+    async (productId: string) => {
+      try {
+        const res = await fetch(`/api/shopping-list/${productId}`, {
+          method: "DELETE",
+        });
+        if (!res.ok) throw new Error("Failed to remove from shopping list");
+        setShoppingList((prev) => prev.filter((id) => id !== productId));
+        showToast("Removed from shopping list");
+      } catch (error) {
+        showToast((error as Error).message, "error");
+      }
+    },
+    [showToast],
+  );
+
+  const clearShoppingList = useCallback(async () => {
+    try {
+      const res = await fetch("/api/shopping-list", { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to clear shopping list");
+      setShoppingList([]);
+      showToast("Shopping list cleared");
+    } catch (error) {
+      showToast((error as Error).message, "error");
+    }
+  }, [showToast]);
+
+  const isInShoppingList = useCallback(
+    (productId: string): boolean => {
+      return shoppingList.includes(productId);
+    },
+    [shoppingList],
+  );
+
+  // Load initial data
+  useEffect(() => {
+    fetchCategories();
+    fetchProducts();
+    fetchOrders();
+    fetchShoppingList();
+  }, [fetchCategories, fetchProducts, fetchOrders, fetchShoppingList]);
+
   const value: AppContextValue = {
     categories,
     products,
     orders,
+    shoppingList,
     loading,
     toast,
     showToast,
@@ -329,6 +419,11 @@ export function AppProvider({ children }: AppProviderProps) {
     closeMegaBuyOrder,
     getCategoryVat,
     calculatePriceWithVat,
+    fetchShoppingList,
+    addToShoppingList,
+    removeFromShoppingList,
+    clearShoppingList,
+    isInShoppingList,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

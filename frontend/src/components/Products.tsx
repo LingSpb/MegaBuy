@@ -35,6 +35,9 @@ export default function Products({
     getCategoryVat,
     calculatePriceWithVat,
     fetchProducts,
+    addToShoppingList,
+    removeFromShoppingList,
+    isInShoppingList,
   } = useApp();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -391,6 +394,21 @@ export default function Products({
                   </div>
                 </div>
                 <div className="card-actions">
+                  {isInShoppingList(product.id) ? (
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => removeFromShoppingList(product.id)}
+                    >
+                      Remove from List
+                    </button>
+                  ) : (
+                    <button
+                      className="btn btn-success"
+                      onClick={() => addToShoppingList(product.id)}
+                    >
+                      Add to List
+                    </button>
+                  )}
                   <button
                     className="btn btn-primary"
                     onClick={() => openAddToOrderModal(product.id)}

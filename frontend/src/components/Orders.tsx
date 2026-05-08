@@ -29,6 +29,7 @@ export default function Orders() {
   const {
     products,
     orders,
+    shoppingList,
     saveOrder,
     deleteOrder,
     createMegaBuyOrder,
@@ -1064,8 +1065,8 @@ export default function Orders() {
                       }
                     >
                       <option value="">Select product</option>
-                      {products
-                        .filter((p) => {
+                      {(() => {
+                        const filtered = products.filter((p) => {
                           if (!productSearch) return true;
                           const search = removeVietnameseTones(
                             productSearch.toLowerCase(),
@@ -1076,16 +1077,44 @@ export default function Orders() {
                               p.name.toLowerCase(),
                             ).includes(search)
                           );
-                        })
-                        .map((p) => (
-                          <option
-                            key={p.id}
-                            value={p.id}
-                            title={`${p.id} - ${p.name}`}
-                          >
-                            {p.id} - {p.name}
-                          </option>
-                        ))}
+                        });
+                        const inList = filtered.filter((p) =>
+                          shoppingList.includes(p.id),
+                        );
+                        const notInList = filtered.filter(
+                          (p) => !shoppingList.includes(p.id),
+                        );
+                        return (
+                          <>
+                            {inList.length > 0 && (
+                              <optgroup label="Shopping List">
+                                {inList.map((p) => (
+                                  <option
+                                    key={p.id}
+                                    value={p.id}
+                                    title={`${p.id} - ${p.name}`}
+                                  >
+                                    {p.id} - {p.name}
+                                  </option>
+                                ))}
+                              </optgroup>
+                            )}
+                            {notInList.length > 0 && (
+                              <optgroup label="All Products">
+                                {notInList.map((p) => (
+                                  <option
+                                    key={p.id}
+                                    value={p.id}
+                                    title={`${p.id} - ${p.name}`}
+                                  >
+                                    {p.id} - {p.name}
+                                  </option>
+                                ))}
+                              </optgroup>
+                            )}
+                          </>
+                        );
+                      })()}
                     </select>
                     <input
                       className="order-qty"

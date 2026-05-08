@@ -4,9 +4,10 @@ import Toast from "./components/Toast";
 import Categories from "./components/Categories";
 import Products from "./components/Products";
 import Orders from "./components/Orders";
+import ShoppingList from "./components/ShoppingList";
 import "./App.css";
 
-type TabName = "orders" | "categories" | "products";
+type TabName = "orders" | "categories" | "products" | "shopping-list";
 
 function AppContent() {
   const [activeTab, setActiveTab] = useState<TabName>("orders");
@@ -47,6 +48,12 @@ function AppContent() {
           >
             Products
           </button>
+          <button
+            className={`nav-btn ${activeTab === "shopping-list" ? "active" : ""}`}
+            onClick={() => handleTabChange("shopping-list")}
+          >
+            Shopping List
+          </button>
         </div>
       </nav>
 
@@ -60,6 +67,7 @@ function AppContent() {
           onCategoryFilterChange={setCategoryFilter}
         />
       )}
+      {activeTab === "shopping-list" && <ShoppingList />}
 
       <Toast />
     </div>
