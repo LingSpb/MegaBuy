@@ -1038,13 +1038,22 @@ export default function Orders() {
                     <select
                       className="order-product"
                       value={item.product_id}
+                      title={
+                        item.product_id
+                          ? `${item.product_id} - ${products.find((p) => p.id === item.product_id)?.name || ""}`
+                          : ""
+                      }
                       onChange={(e) =>
                         updateOrderItem(index, "product_id", e.target.value)
                       }
                     >
                       <option value="">Select product</option>
                       {products.map((p) => (
-                        <option key={p.id} value={p.id}>
+                        <option
+                          key={p.id}
+                          value={p.id}
+                          title={`${p.id} - ${p.name}`}
+                        >
                           {p.id} - {p.name}
                         </option>
                       ))}
