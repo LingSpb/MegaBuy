@@ -45,6 +45,10 @@ export default function Admin() {
   const [deliveryStatus, setDeliveryStatus] = useState<
     Record<string, DeliveryStatus>
   >({});
+  const [hoveredCell, setHoveredCell] = useState<{
+    productId: string | null;
+    orderId: string | null;
+  }>({ productId: null, orderId: null });
 
   // Get the active Mega Buy order (Draft, Locked, or Delivered) and its child orders
   const { megaOrder, childOrders } = useMemo(() => {
@@ -662,7 +666,10 @@ export default function Admin() {
                     <tr>
                       <th className="sticky-col">{t("admin.product")}</th>
                       {childOrders.map((order) => (
-                        <th key={order.id} className="order-col">
+                        <th
+                          key={order.id}
+                          className={`order-col ${hoveredCell.orderId === order.id ? "col-highlight" : ""}`}
+                        >
                           {order.person_name}
                         </th>
                       ))}
@@ -682,7 +689,9 @@ export default function Admin() {
 
                       return (
                         <tr key={row.product_id}>
-                          <td className="sticky-col product-cell">
+                          <td
+                            className={`sticky-col product-cell ${hoveredCell.productId === row.product_id ? "row-highlight" : ""}`}
+                          >
                             <strong>{row.product_id}</strong>
                             <br />
                             <span className="product-name">
@@ -713,6 +722,18 @@ export default function Admin() {
                               <td
                                 key={order.id}
                                 className={`qty-cell ${hasPendingEdit ? "pending" : ""}`}
+                                onMouseEnter={() =>
+                                  setHoveredCell({
+                                    productId: row.product_id,
+                                    orderId: order.id,
+                                  })
+                                }
+                                onMouseLeave={() =>
+                                  setHoveredCell({
+                                    productId: null,
+                                    orderId: null,
+                                  })
+                                }
                               >
                                 {isEditing ? (
                                   <div className="qty-edit-group">
@@ -865,7 +886,10 @@ export default function Admin() {
                     <tr>
                       <th className="sticky-col">{t("admin.product")}</th>
                       {childOrders.map((order) => (
-                        <th key={order.id} className="order-col">
+                        <th
+                          key={order.id}
+                          className={`order-col ${hoveredCell.orderId === order.id ? "col-highlight" : ""}`}
+                        >
                           <div>{order.person_name}</div>
                           <div className="order-total">
                             {orderTotals[order.id]?.toFixed(2) || 0} kr
@@ -880,7 +904,9 @@ export default function Admin() {
 
                       return (
                         <tr key={row.product_id}>
-                          <td className="sticky-col product-cell">
+                          <td
+                            className={`sticky-col product-cell ${hoveredCell.productId === row.product_id ? "row-highlight" : ""}`}
+                          >
                             <strong>{row.product_id}</strong>
                             <br />
                             <span className="product-name">
@@ -904,6 +930,18 @@ export default function Admin() {
                                 }
                                 title={
                                   oq ? t("admin.clickToToggle") : undefined
+                                }
+                                onMouseEnter={() =>
+                                  setHoveredCell({
+                                    productId: row.product_id,
+                                    orderId: order.id,
+                                  })
+                                }
+                                onMouseLeave={() =>
+                                  setHoveredCell({
+                                    productId: null,
+                                    orderId: null,
+                                  })
                                 }
                               >
                                 {oq ? (

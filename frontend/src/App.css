@@ -1249,14 +1249,17 @@ body {
 }
 
 .overview-table-container {
-  overflow-x: auto;
+  overflow: auto;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
+  max-height: 70vh;
+  position: relative;
 }
 
 .overview-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 14px;
 }
 
@@ -1265,6 +1268,12 @@ body {
   padding: 10px 12px;
   border: 1px solid #e2e8f0;
   text-align: center;
+}
+
+.overview-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 3;
 }
 
 .overview-table th {
@@ -1278,7 +1287,7 @@ body {
   position: sticky;
   left: 0;
   background: white;
-  z-index: 1;
+  z-index: 2;
   text-align: left;
   min-width: 200px;
   box-shadow: 2px 0 5px rgba(0, 0, 0, 0.05);
@@ -1286,6 +1295,16 @@ body {
 
 .overview-table th.sticky-col {
   background: #f7fafc;
+  z-index: 4;
+}
+
+/* Hover highlight for row and column headers */
+.overview-table th.col-highlight {
+  background: #bee3f8 !important;
+}
+
+.overview-table td.row-highlight {
+  background: #bee3f8 !important;
   z-index: 2;
 }
 
