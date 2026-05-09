@@ -1004,7 +1004,6 @@ export default function Orders() {
                           .toLowerCase()
                           .includes(discountSearch.toLowerCase()),
                     )
-                    .slice(0, 50)
                     .map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.id} - {p.name} ({p.price} kr)
@@ -1309,14 +1308,44 @@ export default function Orders() {
                     >
                       <option value="">{t("orders.selectProduct")}</option>
                       {(() => {
-                        const inList = products.filter((p) =>
-                          shoppingList.includes(p.id),
+                        // Get discount product IDs
+                        const discountProductIds = new Set(
+                          discountProducts.map((d) => d.product_id),
+                        );
+                        // Discount products
+                        const discountItems = products.filter((p) =>
+                          discountProductIds.has(p.id),
+                        );
+                        const inList = products.filter(
+                          (p) =>
+                            shoppingList.includes(p.id) &&
+                            !discountProductIds.has(p.id),
                         );
                         const notInList = products.filter(
-                          (p) => !shoppingList.includes(p.id),
+                          (p) =>
+                            !shoppingList.includes(p.id) &&
+                            !discountProductIds.has(p.id),
                         );
                         return (
                           <>
+                            {discountItems.length > 0 && (
+                              <optgroup label={t("orders.discountProducts")}>
+                                {discountItems.map((p) => {
+                                  const discount = discountProducts.find(
+                                    (d) => d.product_id === p.id,
+                                  );
+                                  return (
+                                    <option
+                                      key={p.id}
+                                      value={p.id}
+                                      title={`${p.id} - ${p.name} (${discount?.discount_price} kr)`}
+                                    >
+                                      {p.id} - {p.name} ★
+                                    </option>
+                                  );
+                                })}
+                              </optgroup>
+                            )}
                             {inList.length > 0 && (
                               <optgroup label={t("orders.shoppingList")}>
                                 {inList.map((p) => (
