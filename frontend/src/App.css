@@ -4,11 +4,23 @@
   box-sizing: border-box;
 }
 
+html {
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
 body {
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   min-height: 100vh;
   padding: 20px;
+  overflow-x: hidden;
+}
+
+@media (max-width: 768px) {
+  body {
+    padding: 10px;
+  }
 }
 
 .container {
@@ -987,6 +999,7 @@ body {
   max-width: 600px;
   max-height: 90vh;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
 }
 
@@ -1113,12 +1126,47 @@ body {
 @media (max-width: 768px) {
   .navbar {
     flex-direction: column;
-    gap: 15px;
+    gap: 10px;
+    padding: 12px 10px;
+    position: relative;
+  }
+
+  .navbar h1 {
+    font-size: 18px;
+    text-align: center;
   }
 
   .nav-links {
     width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
     justify-content: center;
+    padding-bottom: 0;
+  }
+
+  .nav-btn {
+    padding: 8px 12px;
+    font-size: 12px;
+    white-space: nowrap;
+    flex: 0 0 auto;
+  }
+
+  .language-switcher {
+    margin-left: 0;
+    flex-shrink: 0;
+    position: absolute;
+    top: 10px;
+    right: 10px;
+  }
+
+  .lang-btn {
+    padding: 4px 8px;
+    font-size: 10px;
+  }
+
+  .tab {
+    padding: 15px;
   }
 
   .tab-header {
@@ -1129,6 +1177,7 @@ body {
 
   .tab-header h2 {
     width: 100%;
+    font-size: 1.25rem;
   }
 
   .tab-header .btn {
@@ -1268,6 +1317,7 @@ body {
 
 .overview-table-container {
   overflow: auto;
+  -webkit-overflow-scrolling: touch;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   max-height: 70vh;
@@ -1307,7 +1357,8 @@ body {
   background: white;
   z-index: 2;
   text-align: left;
-  min-width: 200px;
+  min-width: 140px;
+  max-width: 180px;
   box-shadow: 2px 0 5px rgba(0, 0, 0, 0.05);
 }
 
@@ -1327,16 +1378,21 @@ body {
 }
 
 .product-cell {
-  line-height: 1.4;
+  line-height: 1.3;
 }
 
 .product-cell strong {
   color: #2d3748;
+  font-size: 12px;
+  display: block;
+  word-break: break-word;
 }
 
 .product-name {
   color: #4a5568;
-  font-size: 12px;
+  font-size: 11px;
+  display: block;
+  word-break: break-word;
 }
 
 .package-info {
@@ -1738,4 +1794,133 @@ body {
   color: #718096;
   padding: 20px;
   font-style: italic;
+}
+
+/* Mobile-specific styles */
+@media (max-width: 768px) {
+  .admin-section {
+    padding: 15px;
+  }
+
+  .admin-tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 5px;
+    flex-wrap: nowrap;
+  }
+
+  .admin-tabs .btn {
+    white-space: nowrap;
+    flex-shrink: 0;
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+
+  .admin-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .admin-header h3 {
+    font-size: 1rem;
+  }
+
+  .admin-header .export-btn {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .admin-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .overview-table-container {
+    max-height: 60vh;
+  }
+
+  .overview-table {
+    font-size: 12px;
+  }
+
+  .overview-table th,
+  .overview-table td {
+    padding: 6px 8px;
+  }
+
+  .sticky-col {
+    min-width: 80px;
+    max-width: 100px;
+  }
+
+  .product-cell {
+    font-size: 10px;
+    line-height: 1.2;
+  }
+
+  .product-cell strong {
+    font-size: 10px;
+    display: block;
+    word-break: break-word;
+  }
+
+  .product-cell .product-name {
+    display: block;
+    word-break: break-word;
+    font-size: 9px;
+  }
+
+  .product-cell .product-price {
+    font-size: 9px;
+  }
+
+  .product-cell .package-info {
+    display: none;
+  }
+
+  .delivery-legend {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .discount-section {
+    margin: 10px 0;
+  }
+
+  .discount-form-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .discount-product-search,
+  .discount-product-select,
+  .discount-price-input,
+  .discount-note-input {
+    width: 100%;
+    min-width: unset;
+  }
+
+  .discount-table {
+    font-size: 12px;
+  }
+
+  .discount-table th,
+  .discount-table td {
+    padding: 8px 6px;
+  }
+
+  .payment-toggle {
+    font-size: 10px;
+    padding: 3px 8px;
+  }
+
+  .order-total .with-vat {
+    font-size: 11px;
+  }
+
+  .order-total .pre-tax {
+    font-size: 9px;
+  }
 }
