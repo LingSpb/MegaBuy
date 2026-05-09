@@ -551,7 +551,8 @@ export default function Orders() {
       (pkgUnit && pkgUnit !== "units" && pkgUnit !== "unit" ? pkgUnit : "unit");
     const packageQuantity = product.package_quantity || 1;
     const isPackageProduct = product.selling_type === "package";
-    const productInfoText = isPackageProduct
+    const showCartonInfo = isPackageProduct && packageQuantity > 1;
+    const productInfoText = showCartonInfo
       ? `${product.id} - ${product.name}: carton × ${packageQuantity} ${packageUnit}`
       : `${product.id} - ${product.name}`;
 
@@ -570,7 +571,11 @@ export default function Orders() {
         const itemsSummary = orderItems
           .map((item) => {
             const qty = Number(item.quantity) || 0;
-            const unit = (item.unit || "unit").toLowerCase();
+            let unit = (item.unit || "unit").toLowerCase();
+            // For package_quantity=1, convert "carton" to packageUnit
+            if (packageQuantity === 1 && unit === "carton") {
+              unit = packageUnit;
+            }
             totalByUnit.set(
               unit,
               Number(((totalByUnit.get(unit) || 0) + qty).toFixed(2)),
@@ -675,7 +680,18 @@ export default function Orders() {
     });
 
     return Array.from(grouped.values()).map((group, index) => {
-      const unitSummary = Array.from(group.units.entries())
+      // For package_quantity = 1, convert "carton" to "unit"
+      const displayUnits = new Map(group.units);
+      if (group.packageQuantity === 1 && displayUnits.has("carton")) {
+        const cartonQty = displayUnits.get("carton") || 0;
+        displayUnits.delete("carton");
+        displayUnits.set(
+          group.packageUnit,
+          (displayUnits.get(group.packageUnit) || 0) + cartonQty,
+        );
+      }
+
+      const unitSummary = Array.from(displayUnits.entries())
         .map(([unit, quantity]: [string, number]) => `${quantity} ${unit}`)
         .join(", ");
 
@@ -1457,28 +1473,38 @@ export default function Orders() {
                     <span style={{ color: "#68d391" }}>
                       {productDetailsData.discountUnitPrice} kr
                     </span>
-                    /{t("orders.unit")} |{" "}
-                    <span
-                      className="original-price"
-                      style={{
-                        textDecoration: "line-through",
-                        color: "#a0aec0",
-                        marginRight: "4px",
-                      }}
-                    >
-                      {productDetailsData.productPrice} kr
-                    </span>
-                    <span style={{ color: "#68d391" }}>
-                      {productDetailsData.discountCartonPrice} kr
-                    </span>
-                    /carton ({productDetailsData.packageQuantity}{" "}
-                    {t("orders.unit")})
+                    /{t("orders.unit")}
+                    {productDetailsData.packageQuantity > 1 && (
+                      <>
+                        {" | "}
+                        <span
+                          className="original-price"
+                          style={{
+                            textDecoration: "line-through",
+                            color: "#a0aec0",
+                            marginRight: "4px",
+                          }}
+                        >
+                          {productDetailsData.productPrice} kr
+                        </span>
+                        <span style={{ color: "#68d391" }}>
+                          {productDetailsData.discountCartonPrice} kr
+                        </span>
+                        /carton ({productDetailsData.packageQuantity}{" "}
+                        {t("orders.unit")})
+                      </>
+                    )}
                   </>
                 ) : (
                   <>
-                    {productDetailsData.unitPrice} kr/{t("orders.unit")} |{" "}
-                    {productDetailsData.productPrice} kr/carton (
-                    {productDetailsData.packageQuantity} {t("orders.unit")})
+                    {productDetailsData.unitPrice} kr/{t("orders.unit")}
+                    {productDetailsData.packageQuantity > 1 && (
+                      <>
+                        {" | "}
+                        {productDetailsData.productPrice} kr/carton (
+                        {productDetailsData.packageQuantity} {t("orders.unit")})
+                      </>
+                    )}
                   </>
                 )}
               </small>
