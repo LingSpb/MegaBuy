@@ -204,6 +204,8 @@
     "copyFailed": "Failed to copy to clipboard"
   },
   "admin": {
+    "overview": "Overview",
+    "deliveryStatus": "Delivery Status",
     "noActiveMegaOrder": "No active Mega Buy order found. Place or deliver a Mega Buy order first.",
     "megaOrderOverview": "Mega Order Overview",
     "product": "Product",
@@ -223,6 +225,9 @@
     "productName": "Product Name",
     "quantity": "Quantity",
     "noDataToExport": "No data to export",
-    "exportSuccess": "Excel file exported successfully"
+    "exportSuccess": "Excel file exported successfully",
+    "notDelivered": "Not delivered",
+    "delivered": "Delivered",
+    "clickToToggle": "Click to change status"
   }
 }

@@ -204,6 +204,8 @@
     "copyFailed": "Không thể sao chép"
   },
   "admin": {
+    "overview": "Tổng quan",
+    "deliveryStatus": "Trạng thái giao hàng",
     "noActiveMegaOrder": "Không có đơn MegaBuy nào đang hoạt động. Vui lòng đặt hoặc giao một đơn MegaBuy trước.",
     "megaOrderOverview": "Tổng quan đơn Mega",
     "product": "Sản phẩm",
@@ -223,6 +225,9 @@
     "productName": "Tên sản phẩm",
     "quantity": "Số lượng",
     "noDataToExport": "Không có dữ liệu để xuất",
-    "exportSuccess": "Xuất file Excel thành công"
+    "exportSuccess": "Xuất file Excel thành công",
+    "notDelivered": "Chưa giao",
+    "delivered": "Đã giao",
+    "clickToToggle": "Nhấn để thay đổi trạng thái"
   }
 }
