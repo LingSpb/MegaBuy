@@ -401,35 +401,6 @@ export default function Products({
                     </p>
                     <p>{getProductDescription(product)}</p>
                   </div>
-                  <div>
-                    {isPackage ? (
-                      <span className="selling-type-badge">
-                        {t("products.cartonLabel")
-                          .replace("{qty}", String(product.package_quantity))
-                          .replace(
-                            "{unit}",
-                            product.unit_label ||
-                              product.package_unit ||
-                              "units",
-                          )}
-                      </span>
-                    ) : (
-                      <span className="selling-type-badge">
-                        {t("products.perUnit")} {product.unit_label}
-                      </span>
-                    )}
-                    {displayPrice && (
-                      <span className="unit-price-badge">
-                        {displayPrice} kr/{product.unit_label}
-                      </span>
-                    )}
-                    {displayPriceWithVat && (
-                      <span className="unit-price-vat-badge">
-                        {displayPriceWithVat} kr/{product.unit_label}{" "}
-                        {t("common.inclVat")}
-                      </span>
-                    )}
-                  </div>
                 </div>
                 <div className="card-actions">
                   {isInShoppingList(product.id) ? (
