@@ -21,6 +21,8 @@ interface ProductRow {
   unit_label: string;
   orderQuantities: { [orderId: string]: OrderQuantity };
   totalUnits: number; // total in individual units
+  unitPrice: number;
+  discountPrice: number | null;
 }
 
 interface QuantityEdit {
@@ -116,6 +118,8 @@ export default function Admin() {
             unit_label: unitLabel,
             orderQuantities: {},
             totalUnits: 0,
+            unitPrice: product?.price || 0,
+            discountPrice: getDiscountPrice(item.product_id),
           });
         }
 
@@ -162,6 +166,8 @@ export default function Admin() {
           unit_label: unitLabel,
           orderQuantities: {},
           totalUnits: 0,
+          unitPrice: product.price || 0,
+          discountPrice: getDiscountPrice(edit.productId),
         });
       }
 
@@ -188,7 +194,7 @@ export default function Admin() {
     return Array.from(productMap.values()).sort((a, b) =>
       a.product_name.localeCompare(b.product_name),
     );
-  }, [childOrders, products, pendingEdits]);
+  }, [childOrders, products, pendingEdits, getDiscountPrice]);
 
   // Check if total is a round carton number
   const isRoundCarton = (
@@ -496,12 +502,13 @@ export default function Admin() {
     showToast(t("admin.exportSuccess"), "success");
   }, [productRows, childOrders, megaOrder, showToast, t]);
 
-  // Calculate total amount with VAT for each order
+  // Calculate total amount with and without VAT for each order
   const orderTotals = useMemo(() => {
-    const totals: Record<string, number> = {};
+    const totals: Record<string, { preTax: number; withVat: number }> = {};
 
     for (const order of childOrders) {
-      let total = 0;
+      let preTaxTotal = 0;
+      let withVatTotal = 0;
       for (const item of order.items) {
         const product = products.find((p) => p.id === item.product_id);
         if (!product) continue;
@@ -523,9 +530,13 @@ export default function Admin() {
         const vatRate = category?.vat ?? 6;
         const priceWithVat = itemPrice * (1 + vatRate / 100);
 
-        total += priceWithVat;
+        preTaxTotal += itemPrice;
+        withVatTotal += priceWithVat;
       }
-      totals[order.id] = Math.round(total * 100) / 100;
+      totals[order.id] = {
+        preTax: Math.round(preTaxTotal * 100) / 100,
+        withVat: Math.round(withVatTotal * 100) / 100,
+      };
     }
     return totals;
   }, [childOrders, products, categories, getDiscountPrice]);
@@ -705,6 +716,22 @@ export default function Admin() {
                             <br />
                             <span className="product-name">
                               {row.product_name}
+                            </span>
+                            <br />
+                            <span className="product-price">
+                              {row.discountPrice !== null ? (
+                                <>
+                                  <span className="price-original">
+                                    {row.unitPrice} kr
+                                  </span>{" "}
+                                  <span className="price-discount">
+                                    {row.discountPrice} kr
+                                  </span>
+                                </>
+                              ) : (
+                                <>{row.unitPrice} kr</>
+                              )}
+                              /{row.unit_label}
                             </span>
                             {requiresCarton && (
                               <>
@@ -901,7 +928,14 @@ export default function Admin() {
                         >
                           <div>{order.person_name}</div>
                           <div className="order-total">
-                            {orderTotals[order.id]?.toFixed(2) || 0} kr
+                            <span className="with-vat">
+                              {orderTotals[order.id]?.withVat?.toFixed(2) || 0}{" "}
+                              kr
+                            </span>
+                            <span className="pre-tax">
+                              ({orderTotals[order.id]?.preTax?.toFixed(2) || 0}{" "}
+                              kr ex. VAT)
+                            </span>
                           </div>
                         </th>
                       ))}
@@ -920,6 +954,22 @@ export default function Admin() {
                             <br />
                             <span className="product-name">
                               {row.product_name}
+                            </span>
+                            <br />
+                            <span className="product-price">
+                              {row.discountPrice !== null ? (
+                                <>
+                                  <span className="price-original">
+                                    {row.unitPrice} kr
+                                  </span>{" "}
+                                  <span className="price-discount">
+                                    {row.discountPrice} kr
+                                  </span>
+                                </>
+                              ) : (
+                                <>{row.unitPrice} kr</>
+                              )}
+                              /{row.unit_label}
                             </span>
                           </td>
                           {childOrders.map((order) => {
