@@ -32,7 +32,19 @@
     "noDescription": "Không có mô tả",
     "noCategory": "Chưa phân loại",
     "perCarton": "mỗi thùng",
-    "inclVat": "có VAT"
+    "inclVat": "có VAT",
+    "page": "Trang",
+    "of": "của",
+    "showing": "Hiển thị",
+    "to": "đến",
+    "items": "sản phẩm",
+    "previous": "Trước",
+    "next": "Sau",
+    "first": "Đầu",
+    "last": "Cuối",
+    "itemsPerPage": "Số lượng mỗi trang",
+    "and": "và",
+    "more": "lỗi khác"
   },
   "orders": {
     "title": "Đơn hàng",
@@ -131,6 +143,7 @@
     "productDeleted": "Đã xóa sản phẩm",
     "noProductsFound": "Không tìm thấy sản phẩm",
     "noProductsYet": "Chưa có sản phẩm. Tạo mới để bắt đầu!",
+    "importErrors": "Lỗi khi nhập",
     "addedToOrder": "Đã thêm {product} vào đơn của {person}",
     "placeholder": {
       "productName": "VD: Gạo ST25 18kg",

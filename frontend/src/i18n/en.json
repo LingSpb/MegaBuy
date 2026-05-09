@@ -32,7 +32,19 @@
     "noDescription": "No description",
     "noCategory": "No category",
     "perCarton": "per carton",
-    "inclVat": "incl. VAT"
+    "inclVat": "incl. VAT",
+    "page": "Page",
+    "of": "of",
+    "showing": "Showing",
+    "to": "to",
+    "items": "items",
+    "previous": "Previous",
+    "next": "Next",
+    "first": "First",
+    "last": "Last",
+    "itemsPerPage": "Items per page",
+    "and": "and",
+    "more": "more errors"
   },
   "orders": {
     "title": "Orders",
@@ -131,6 +143,7 @@
     "productDeleted": "Product deleted successfully",
     "noProductsFound": "No products found",
     "noProductsYet": "No products yet. Create one to get started!",
+    "importErrors": "Import errors",
     "addedToOrder": "Added {product} to {person}'s order",
     "placeholder": {
       "productName": "e.g., Rice ST25 18kg",

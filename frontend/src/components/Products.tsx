@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, FormEvent } from "react";
+import { useState, useMemo, useRef, FormEvent, useEffect } from "react";
 import { useApp } from "../context/AppContext";
 import { useI18n } from "../i18n";
 import Modal from "./Modal";
@@ -67,6 +67,10 @@ export default function Products({
     package_quantity: 1,
   });
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(100);
+
   const filteredProducts = useMemo(() => {
     let result = products;
 
@@ -91,6 +95,17 @@ export default function Products({
 
     return result;
   }, [products, categories, categoryFilter, searchTerm]);
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedProducts = filteredProducts.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, categoryFilter, itemsPerPage]);
 
   const editableOrders = useMemo(() => {
     return orders.filter(
@@ -275,6 +290,17 @@ export default function Products({
       showToast(data.message);
       if (data.errors && data.errors.length > 0) {
         console.warn("Import warnings:", data.errors);
+        // Show first few errors to user
+        const errorSummary = data.errors.slice(0, 5).join("\n");
+        const moreCount = data.errors.length - 5;
+        const suffix =
+          moreCount > 0
+            ? `\n... ${t("common.and")} ${moreCount} ${t("common.more")}`
+            : "";
+        showToast(
+          `${t("products.importErrors")}:\n${errorSummary}${suffix}`,
+          "error",
+        );
       }
       await fetchProducts();
     } catch (error) {
@@ -347,7 +373,7 @@ export default function Products({
               : t("products.noProductsYet")}
           </div>
         ) : (
-          filteredProducts.map((product) => {
+          paginatedProducts.map((product) => {
             const vat = getCategoryVat(product.category_id);
             const isPackage = product.selling_type === "package";
             // product.price is the unit price
@@ -442,6 +468,85 @@ export default function Products({
           })
         )}
       </div>
+
+      {/* Pagination Controls */}
+      {filteredProducts.length > 0 && (
+        <div className="pagination">
+          <div className="pagination-info">
+            {t("common.showing")} {startIndex + 1} {t("common.to")}{" "}
+            {Math.min(endIndex, filteredProducts.length)} {t("common.of")}{" "}
+            {filteredProducts.length} {t("common.items")}
+          </div>
+          <div className="pagination-controls">
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => setCurrentPage(1)}
+              disabled={currentPage === 1}
+            >
+              {t("common.first")}
+            </button>
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+            >
+              {t("common.previous")}
+            </button>
+            <span className="pagination-pages">
+              {t("common.page")}{" "}
+              <input
+                type="number"
+                min={1}
+                max={totalPages || 1}
+                value={currentPage}
+                onChange={(e) => {
+                  const page = parseInt(e.target.value, 10);
+                  if (!isNaN(page) && page >= 1 && page <= totalPages) {
+                    setCurrentPage(page);
+                  }
+                }}
+                onBlur={(e) => {
+                  const page = parseInt(e.target.value, 10);
+                  if (isNaN(page) || page < 1) {
+                    setCurrentPage(1);
+                  } else if (page > totalPages) {
+                    setCurrentPage(totalPages);
+                  }
+                }}
+                className="page-input"
+              />{" "}
+              {t("common.of")} {totalPages || 1}
+            </span>
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage >= totalPages}
+            >
+              {t("common.next")}
+            </button>
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={currentPage >= totalPages}
+            >
+              {t("common.last")}
+            </button>
+          </div>
+          <div className="pagination-size">
+            <label>{t("common.itemsPerPage")}:</label>
+            <select
+              value={itemsPerPage}
+              onChange={(e) => setItemsPerPage(Number(e.target.value))}
+            >
+              <option value={5}>5</option>
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+          </div>
+        </div>
+      )}
 
       {/* Product Modal */}
       <Modal

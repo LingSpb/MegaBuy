@@ -325,34 +325,50 @@ async function fetchCategories() {
   const { data, error } = await supabase
     .from("categories")
     .select("*")
-    .order("name", { ascending: true });
+    .order("name", { ascending: true })
+    .range(0, 999);
   if (error) throw error;
   return data;
 }
 
 async function fetchProducts() {
-  // Join products with product_metadata
-  const { data, error } = await supabase
-    .from("products")
-    .select(
-      `
-      *,
-      product_metadata (
-        category_id,
-        description,
-        selling_type,
-        unit_label,
-        unit_price,
-        package_unit,
-        created_at
+  // Supabase has a server-side limit of 1000 rows, so we need to paginate
+  const PAGE_SIZE = 1000;
+  let allData = [];
+  let from = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    const { data, error } = await supabase
+      .from("products")
+      .select(
+        `
+        *,
+        product_metadata (
+          category_id,
+          description,
+          selling_type,
+          unit_label,
+          unit_price,
+          package_unit,
+          created_at
+        )
+      `,
       )
-    `,
-    )
-    .order("name", { ascending: true });
-  if (error) throw error;
+      .order("name", { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
+
+    if (error) throw error;
+
+    allData = allData.concat(data);
+    hasMore = data.length === PAGE_SIZE;
+    from += PAGE_SIZE;
+  }
+
+  console.log(`Fetched ${allData.length} products (paginated)`);
 
   // Flatten the joined data
-  return data.map((p) => ({
+  return allData.map((p) => ({
     id: p.id,
     name: p.name,
     brand: p.brand,
@@ -373,14 +389,16 @@ async function fetchOrders() {
   const { data: orders, error: ordersError } = await supabase
     .from("orders")
     .select("*")
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: true })
+    .range(0, 9999);
   if (ordersError) throw ordersError;
 
   // Fetch all order items
   const { data: allItems, error: itemsError } = await supabase
     .from("order_items")
     .select("*")
-    .order("sort_order", { ascending: true });
+    .order("sort_order", { ascending: true })
+    .range(0, 99999);
   if (itemsError) throw itemsError;
 
   // Group items by order_id
@@ -955,19 +973,39 @@ app.post("/api/products/import", upload.single("file"), async (req, res) => {
 
     // Expected columns: product code (id), name, brand, price, package_quantity
     // Support various column name formats
+    const normalizeColumnName = (name) =>
+      name
+        .toLowerCase()
+        .replace(/[_\s\-\(\)\.\/\\]/g, "") // Remove underscores, spaces, hyphens, parentheses, dots, slashes
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, ""); // Remove diacritics
+
     const findColumn = (row, ...names) => {
-      for (const name of names) {
-        const key = Object.keys(row).find(
-          (k) =>
-            k.toLowerCase().replace(/[_\s]/g, "") ===
-            name.toLowerCase().replace(/[_\s]/g, ""),
-        );
-        if (key !== undefined) return row[key];
+      const normalizedNames = names.map(normalizeColumnName);
+      for (const key of Object.keys(row)) {
+        const normalizedKey = normalizeColumnName(key);
+        if (normalizedNames.includes(normalizedKey)) {
+          return row[key];
+        }
+        // Also check if key contains any of the names
+        for (const normalizedName of normalizedNames) {
+          if (
+            normalizedKey.includes(normalizedName) ||
+            normalizedName.includes(normalizedKey)
+          ) {
+            return row[key];
+          }
+        }
       }
       return undefined;
     };
 
-    const results = { created: 0, updated: 0, errors: [] };
+    // Log first row columns for debugging
+    if (rows.length > 0) {
+      console.log("Import: Found columns:", Object.keys(rows[0]));
+    }
+
+    const results = { created: 0, updated: 0, skipped: 0, errors: [] };
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
@@ -982,6 +1020,11 @@ app.post("/api/products/import", upload.single("file"), async (req, res) => {
           "product_code",
           "Mã SP",
           "masp",
+          "sku",
+          "mã",
+          "ma",
+          "số",
+          "so",
         ) || "",
       ).trim();
       const name = String(
@@ -993,12 +1036,35 @@ app.post("/api/products/import", upload.single("file"), async (req, res) => {
           "Tên sản phẩm",
           "Tên sản phẩm (VI)",
           "tensanpham",
+          "tên",
+          "ten",
+          "sản phẩm",
+          "sanpham",
         ) || "",
       ).trim();
       const brand = String(
-        findColumn(row, "brand", "Thương hiệu", "thuonghieu") || "",
+        findColumn(
+          row,
+          "brand",
+          "Thương hiệu",
+          "thuonghieu",
+          "nhãn hiệu",
+          "nhanhieu",
+        ) || "",
       ).trim();
-      const priceRaw = findColumn(row, "price", "Giá", "Giá (SEK)", "gia");
+      const priceRaw = findColumn(
+        row,
+        "price",
+        "Giá",
+        "Giá (SEK)",
+        "gia",
+        "giá bán",
+        "giaban",
+        "đơn giá",
+        "dongia",
+        "unit price",
+        "unitprice",
+      );
       const packageQuantityRaw = findColumn(
         row,
         "packagequantity",
@@ -1007,31 +1073,62 @@ app.post("/api/products/import", upload.single("file"), async (req, res) => {
         "quantity",
         "Quy cách",
         "quycach",
+        "số lượng",
+        "soluong",
+        "đóng gói",
+        "donggoi",
+        "carton",
+        "thùng",
+        "thung",
       );
 
       if (!productCode) {
         results.errors.push(`Row ${rowNum}: Missing product code`);
+        results.skipped++;
         continue;
       }
 
       if (!name) {
         results.errors.push(`Row ${rowNum}: Missing product name`);
+        results.skipped++;
         continue;
       }
 
       const unitPrice = parseFloat(priceRaw);
       if (isNaN(unitPrice) || unitPrice < 0) {
         results.errors.push(`Row ${rowNum}: Invalid price "${priceRaw}"`);
+        results.skipped++;
         continue;
       }
 
-      const packageQuantity = parseFloat(packageQuantityRaw);
-      if (isNaN(packageQuantity) || packageQuantity <= 0) {
-        results.errors.push(
-          `Row ${rowNum}: Invalid package quantity "${packageQuantityRaw}"`,
-        );
-        continue;
+      // Package quantity is optional, default to 1
+      let packageQuantity = 1;
+      if (
+        packageQuantityRaw !== undefined &&
+        packageQuantityRaw !== null &&
+        packageQuantityRaw !== ""
+      ) {
+        packageQuantity = parseFloat(packageQuantityRaw);
+        if (isNaN(packageQuantity) || packageQuantity <= 0) {
+          packageQuantity = 1; // Default to 1 if invalid
+        }
       }
+
+      // Get unit label if available
+      const unitLabelRaw = findColumn(
+        row,
+        "unit",
+        "unit_label",
+        "unitlabel",
+        "đơn vị",
+        "donvi",
+        "dvt",
+        "đơn vị tính",
+      );
+      const unitLabel = unitLabelRaw ? String(unitLabelRaw).trim() : null;
+
+      // Determine selling type based on package quantity
+      const sellingType = packageQuantity > 1 ? "package" : "unit";
 
       // Store unit price directly (price per unit, not per carton)
 
@@ -1044,14 +1141,18 @@ app.post("/api/products/import", upload.single("file"), async (req, res) => {
 
       if (existingProduct) {
         // Update existing product
+        const updateData = {
+          name,
+          brand,
+          price: unitPrice,
+          package_quantity: packageQuantity,
+          selling_type: sellingType,
+        };
+        if (unitLabel) updateData.unit_label = unitLabel;
+
         const { error: updateError } = await supabase
           .from("products")
-          .update({
-            name,
-            brand,
-            price: unitPrice,
-            package_quantity: packageQuantity,
-          })
+          .update(updateData)
           .eq("id", productCode);
 
         if (updateError) {
@@ -1063,13 +1164,19 @@ app.post("/api/products/import", upload.single("file"), async (req, res) => {
         }
       } else {
         // Create new product
-        const { error: insertError } = await supabase.from("products").insert({
+        const insertData = {
           id: productCode,
           name,
           brand,
           price: unitPrice,
           package_quantity: packageQuantity,
-        });
+          selling_type: sellingType,
+        };
+        if (unitLabel) insertData.unit_label = unitLabel;
+
+        const { error: insertError } = await supabase
+          .from("products")
+          .insert(insertData);
 
         if (insertError) {
           results.errors.push(
@@ -1082,9 +1189,10 @@ app.post("/api/products/import", upload.single("file"), async (req, res) => {
     }
 
     res.json({
-      message: `Import complete: ${results.created} created, ${results.updated} updated`,
+      message: `Import complete: ${results.created} created, ${results.updated} updated${results.skipped > 0 ? `, ${results.skipped} skipped` : ""}`,
       created: results.created,
       updated: results.updated,
+      skipped: results.skipped,
       errors: results.errors,
     });
   } catch (error) {
