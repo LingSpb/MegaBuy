@@ -65,7 +65,7 @@ export default function Orders() {
     person_name: "",
     order_date: new Date().toISOString().split("T")[0],
     secret_phrase: "",
-    items: [{ product_id: "", quantity: 1, unit: "carton" }],
+    items: [{ product_id: "", quantity: 1, unit: "unit" }],
   });
   const [orderModalError, setOrderModalError] = useState<string | null>(null);
   const [discountSectionOpen, setDiscountSectionOpen] = useState(true);
@@ -169,7 +169,7 @@ export default function Orders() {
         person_name: "",
         order_date: new Date().toISOString().split("T")[0],
         secret_phrase: "",
-        items: [{ product_id: "", quantity: 1, unit: "carton" }],
+        items: [{ product_id: "", quantity: 1, unit: "unit" }],
       });
     }
     setOrderModalError(null);
@@ -186,7 +186,7 @@ export default function Orders() {
     setOrderForm({
       ...orderForm,
       items: [
-        { product_id: "", quantity: 1, unit: "carton" },
+        { product_id: "", quantity: 1, unit: "unit" },
         ...orderForm.items,
       ],
     });
