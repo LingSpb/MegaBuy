@@ -39,16 +39,16 @@ function AppContent() {
             {t("nav.orders")}
           </button>
           <button
-            className={`nav-btn ${activeTab === "products" ? "active" : ""}`}
-            onClick={() => handleTabChange("products")}
-          >
-            {t("nav.products")}
-          </button>
-          <button
             className={`nav-btn ${activeTab === "shopping-list" ? "active" : ""}`}
             onClick={() => handleTabChange("shopping-list")}
           >
             {t("nav.shoppingList")}
+          </button>
+          <button
+            className={`nav-btn ${activeTab === "products" ? "active" : ""}`}
+            onClick={() => handleTabChange("products")}
+          >
+            {t("nav.products")}
           </button>
           <button
             className={`nav-btn ${activeTab === "categories" ? "active" : ""}`}

@@ -438,7 +438,7 @@ export default function Products({
                     </button>
                   ) : (
                     <button
-                      className="btn btn-success"
+                      className="btn btn-favorite"
                       onClick={() => addToShoppingList(product.id)}
                     >
                       {t("products.addToList")}
