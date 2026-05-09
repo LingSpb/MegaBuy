@@ -349,6 +349,18 @@ export default function Admin() {
     }
   };
 
+  // Toggle cell highlight (for mobile tap support)
+  const toggleCellHighlight = (productId: string, orderId: string) => {
+    if (
+      hoveredCell.productId === productId &&
+      hoveredCell.orderId === orderId
+    ) {
+      setHoveredCell({ productId: null, orderId: null });
+    } else {
+      setHoveredCell({ productId, orderId });
+    }
+  };
+
   // Export to Excel for Madam Hong
   const exportToMadamHong = useCallback(() => {
     if (productRows.length === 0) {
@@ -818,6 +830,9 @@ export default function Admin() {
                               <td
                                 key={order.id}
                                 className={`qty-cell ${hasPendingEdit ? "pending" : ""}`}
+                                onClick={() =>
+                                  toggleCellHighlight(row.product_id, order.id)
+                                }
                                 onMouseEnter={() =>
                                   setHoveredCell({
                                     productId: row.product_id,
@@ -1056,10 +1071,15 @@ export default function Admin() {
                               <td
                                 key={order.id}
                                 className={`qty-cell delivery-cell ${deliveryClass}`}
-                                onClick={() =>
-                                  oq &&
-                                  toggleDeliveryStatus(order.id, row.product_id)
-                                }
+                                onClick={() => {
+                                  toggleCellHighlight(row.product_id, order.id);
+                                  if (oq) {
+                                    toggleDeliveryStatus(
+                                      order.id,
+                                      row.product_id,
+                                    );
+                                  }
+                                }}
                                 title={
                                   oq ? t("admin.clickToToggle") : undefined
                                 }

@@ -1421,6 +1421,8 @@ body {
 
 .qty-cell {
   position: relative;
+  cursor: pointer;
+  touch-action: manipulation;
 }
 
 .qty-cell.pending {
