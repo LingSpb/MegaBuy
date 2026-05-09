@@ -204,7 +204,6 @@
     "copyFailed": "Không thể sao chép"
   },
   "admin": {
-    "overview": "Tổng quan",
     "noActiveMegaOrder": "Không có đơn MegaBuy nào đang hoạt động. Vui lòng đặt hoặc giao một đơn MegaBuy trước.",
     "megaOrderOverview": "Tổng quan đơn Mega",
     "product": "Sản phẩm",
@@ -217,6 +216,12 @@
     "saveChanges": "Lưu thay đổi",
     "discardChanges": "Hủy bỏ",
     "changesSaved": "Đã lưu thay đổi thành công",
-    "saveFailed": "Lưu thay đổi thất bại"
+    "saveFailed": "Lưu thay đổi thất bại",
+    "exportToMadamHong": "Xuất cho Madam Hong",
+    "productCode": "Mã sản phẩm",
+    "productName": "Tên sản phẩm",
+    "quantity": "Số lượng",
+    "noDataToExport": "Không có dữ liệu để xuất",
+    "exportSuccess": "Xuất file Excel thành công"
   }
 }

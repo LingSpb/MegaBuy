@@ -1,8 +1,7 @@
 import { useState, useMemo, useCallback } from "react";
 import { useApp } from "../context/AppContext";
 import { useI18n } from "../i18n";
-
-type AdminView = "overview";
+import * as XLSX from "xlsx";
 
 interface OrderQuantity {
   quantity: number;
@@ -29,7 +28,6 @@ interface QuantityEdit {
 export default function Admin() {
   const { orders, products, bulkUpdateOrderItems, showToast } = useApp();
   const { t } = useI18n();
-  const [activeView, setActiveView] = useState<AdminView>("overview");
   const [editingCell, setEditingCell] = useState<{
     orderId: string;
     productId: string;
@@ -322,228 +320,283 @@ export default function Admin() {
     }
   };
 
+  // Export to Excel for Madam Hong
+  const exportToMadamHong = useCallback(() => {
+    if (productRows.length === 0) {
+      showToast(t("admin.noDataToExport"), "error");
+      return;
+    }
+
+    // Build export data with Product Code, Product Name, Quantity
+    const exportData = productRows.map((row) => {
+      const requiresCarton = row.package_quantity > 1;
+
+      let quantityStr: string;
+      if (requiresCarton) {
+        const cartons = Math.floor(row.totalUnits / row.package_quantity);
+        const remainder = row.totalUnits % row.package_quantity;
+
+        if (cartons > 0 && remainder > 0) {
+          // e.g., "2 cartons + 5 units"
+          quantityStr = `${cartons} ${t("admin.carton")}${cartons > 1 ? "s" : ""} + ${remainder} ${row.unit_label}`;
+        } else if (cartons > 0) {
+          // e.g., "2 cartons"
+          quantityStr = `${cartons} ${t("admin.carton")}${cartons > 1 ? "s" : ""}`;
+        } else {
+          // Only units, no full cartons
+          quantityStr = `${remainder} ${row.unit_label}`;
+        }
+      } else {
+        // Non-carton product, just show units
+        quantityStr = `${row.totalUnits} ${row.unit_label}`;
+      }
+
+      return {
+        [t("admin.productCode")]: row.product_id,
+        [t("admin.productName")]: row.product_name,
+        [t("admin.quantity")]: quantityStr,
+      };
+    });
+
+    // Create workbook and worksheet
+    const ws = XLSX.utils.json_to_sheet(exportData);
+
+    // Set column widths
+    ws["!cols"] = [
+      { wch: 15 }, // Product Code
+      { wch: 40 }, // Product Name
+      { wch: 25 }, // Quantity
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Order");
+
+    // Generate filename with date
+    const date = new Date().toISOString().split("T")[0];
+    const filename = `MadamHong_Order_${date}.xlsx`;
+
+    // Download the file
+    XLSX.writeFile(wb, filename);
+
+    showToast(t("admin.exportSuccess"), "success");
+  }, [productRows, showToast, t]);
+
   return (
     <section className="admin-section">
       <h2>{t("nav.admin")}</h2>
 
-      <div className="admin-tabs">
-        <button
-          className={`btn ${activeView === "overview" ? "btn-primary" : "btn-secondary"}`}
-          onClick={() => setActiveView("overview")}
-        >
-          {t("admin.overview")}
-        </button>
-      </div>
-
-      {activeView === "overview" && (
-        <div className="admin-overview">
-          {!megaOrder ? (
-            <div className="empty-state">
-              <p>{t("admin.noActiveMegaOrder")}</p>
+      <div className="admin-overview">
+        {!megaOrder ? (
+          <div className="empty-state">
+            <p>{t("admin.noActiveMegaOrder")}</p>
+          </div>
+        ) : (
+          <>
+            <div className="admin-header">
+              <h3>
+                {t("admin.megaOrderOverview")}: {megaOrder.person_name}
+              </h3>
+              <span className={`state-badge ${megaOrder.state.toLowerCase()}`}>
+                {megaOrder.state}
+              </span>
+              <button
+                className="btn btn-primary export-btn"
+                onClick={exportToMadamHong}
+                disabled={productRows.length === 0}
+              >
+                {t("admin.exportToMadamHong")}
+              </button>
             </div>
-          ) : (
-            <>
-              <div className="admin-header">
-                <h3>
-                  {t("admin.megaOrderOverview")}: {megaOrder.person_name}
-                </h3>
-                <span
-                  className={`state-badge ${megaOrder.state.toLowerCase()}`}
-                >
-                  {megaOrder.state}
+
+            {pendingEdits.length > 0 && (
+              <div className="admin-actions">
+                <span className="pending-count">
+                  {t("admin.pendingChanges").replace(
+                    "{count}",
+                    String(pendingEdits.length),
+                  )}
                 </span>
+                <button className="btn btn-primary" onClick={saveAllEdits}>
+                  {t("admin.saveChanges")}
+                </button>
+                <button className="btn btn-secondary" onClick={discardEdits}>
+                  {t("admin.discardChanges")}
+                </button>
               </div>
+            )}
 
-              {pendingEdits.length > 0 && (
-                <div className="admin-actions">
-                  <span className="pending-count">
-                    {t("admin.pendingChanges").replace(
-                      "{count}",
-                      String(pendingEdits.length),
-                    )}
-                  </span>
-                  <button className="btn btn-primary" onClick={saveAllEdits}>
-                    {t("admin.saveChanges")}
-                  </button>
-                  <button className="btn btn-secondary" onClick={discardEdits}>
-                    {t("admin.discardChanges")}
-                  </button>
-                </div>
-              )}
+            <div className="overview-table-container">
+              <table className="overview-table">
+                <thead>
+                  <tr>
+                    <th className="sticky-col">{t("admin.product")}</th>
+                    {childOrders.map((order) => (
+                      <th key={order.id} className="order-col">
+                        {order.person_name}
+                      </th>
+                    ))}
+                    <th className="total-col">{t("admin.total")}</th>
+                    <th className="carton-col">{t("admin.cartons")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {productRows.map((row) => {
+                    const requiresCarton = row.package_quantity > 1;
+                    const cartonInfo = requiresCarton
+                      ? getCartonInfo(row.totalUnits, row.package_quantity)
+                      : { cartons: 0, remainder: 0 };
+                    const isRound = requiresCarton
+                      ? isRoundCarton(row.totalUnits, row.package_quantity)
+                      : true;
 
-              <div className="overview-table-container">
-                <table className="overview-table">
-                  <thead>
-                    <tr>
-                      <th className="sticky-col">{t("admin.product")}</th>
-                      {childOrders.map((order) => (
-                        <th key={order.id} className="order-col">
-                          {order.person_name}
-                        </th>
-                      ))}
-                      <th className="total-col">{t("admin.total")}</th>
-                      <th className="carton-col">{t("admin.cartons")}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {productRows.map((row) => {
-                      const requiresCarton = row.package_quantity > 1;
-                      const cartonInfo = requiresCarton
-                        ? getCartonInfo(row.totalUnits, row.package_quantity)
-                        : { cartons: 0, remainder: 0 };
-                      const isRound = requiresCarton
-                        ? isRoundCarton(row.totalUnits, row.package_quantity)
-                        : true;
+                    return (
+                      <tr key={row.product_id}>
+                        <td className="sticky-col product-cell">
+                          <strong>{row.product_id}</strong>
+                          <br />
+                          <span className="product-name">
+                            {row.product_name}
+                          </span>
+                          {requiresCarton && (
+                            <>
+                              <br />
+                              <span className="package-info">
+                                {row.package_quantity} {row.unit_label}/
+                                {t("admin.carton")}
+                              </span>
+                            </>
+                          )}
+                        </td>
+                        {childOrders.map((order) => {
+                          const oq = row.orderQuantities[order.id];
+                          const isEditing =
+                            editingCell?.orderId === order.id &&
+                            editingCell?.productId === row.product_id;
+                          const hasPendingEdit = pendingEdits.some(
+                            (e) =>
+                              e.orderId === order.id &&
+                              e.productId === row.product_id,
+                          );
 
-                      return (
-                        <tr key={row.product_id}>
-                          <td className="sticky-col product-cell">
-                            <strong>{row.product_id}</strong>
-                            <br />
-                            <span className="product-name">
-                              {row.product_name}
-                            </span>
-                            {requiresCarton && (
-                              <>
-                                <br />
-                                <span className="package-info">
-                                  {row.package_quantity} {row.unit_label}/
-                                  {t("admin.carton")}
-                                </span>
-                              </>
-                            )}
-                          </td>
-                          {childOrders.map((order) => {
-                            const oq = row.orderQuantities[order.id];
-                            const isEditing =
-                              editingCell?.orderId === order.id &&
-                              editingCell?.productId === row.product_id;
-                            const hasPendingEdit = pendingEdits.some(
-                              (e) =>
-                                e.orderId === order.id &&
-                                e.productId === row.product_id,
-                            );
-
-                            return (
-                              <td
-                                key={order.id}
-                                className={`qty-cell ${hasPendingEdit ? "pending" : ""}`}
-                              >
-                                {isEditing ? (
-                                  <div className="qty-edit-group">
-                                    <input
-                                      type="number"
-                                      className="qty-input"
-                                      value={editValue}
+                          return (
+                            <td
+                              key={order.id}
+                              className={`qty-cell ${hasPendingEdit ? "pending" : ""}`}
+                            >
+                              {isEditing ? (
+                                <div className="qty-edit-group">
+                                  <input
+                                    type="number"
+                                    className="qty-input"
+                                    value={editValue}
+                                    onChange={(e) =>
+                                      setEditValue(e.target.value)
+                                    }
+                                    onKeyDown={handleKeyDown}
+                                    autoFocus
+                                    min="0"
+                                    step="0.5"
+                                  />
+                                  {requiresCarton ? (
+                                    <select
+                                      className="qty-unit-select"
+                                      value={editUnit}
                                       onChange={(e) =>
-                                        setEditValue(e.target.value)
+                                        setEditUnit(e.target.value)
                                       }
                                       onKeyDown={handleKeyDown}
-                                      autoFocus
-                                      min="0"
-                                      step="0.5"
-                                    />
-                                    {requiresCarton ? (
-                                      <select
-                                        className="qty-unit-select"
-                                        value={editUnit}
-                                        onChange={(e) =>
-                                          setEditUnit(e.target.value)
-                                        }
-                                        onKeyDown={handleKeyDown}
-                                      >
-                                        <option value="carton">ctn</option>
-                                        <option value={row.unit_label}>
-                                          {row.unit_label}
-                                        </option>
-                                      </select>
-                                    ) : (
-                                      <span className="qty-unit-label">
+                                    >
+                                      <option value="carton">ctn</option>
+                                      <option value={row.unit_label}>
                                         {row.unit_label}
-                                      </span>
-                                    )}
-                                    <button
-                                      className="qty-confirm-btn"
-                                      onClick={applyEdit}
-                                      title="Confirm"
-                                    >
-                                      ✓
-                                    </button>
-                                    <button
-                                      className="qty-cancel-btn"
-                                      onClick={cancelEditing}
-                                      title="Cancel"
-                                    >
-                                      ✕
-                                    </button>
-                                  </div>
-                                ) : oq ? (
-                                  <button
-                                    className="qty-button"
-                                    onClick={() =>
-                                      startEditing(order.id, row.product_id, oq)
-                                    }
-                                    title={t("admin.clickToEdit")}
-                                  >
-                                    {oq.quantity}{" "}
-                                    <span className="qty-unit">
-                                      {oq.unit === "carton" && requiresCarton
-                                        ? "ctn"
-                                        : oq.unit === "carton"
-                                          ? row.unit_label
-                                          : oq.unit}
+                                      </option>
+                                    </select>
+                                  ) : (
+                                    <span className="qty-unit-label">
+                                      {row.unit_label}
                                     </span>
-                                  </button>
-                                ) : (
+                                  )}
                                   <button
-                                    className="qty-button qty-add"
-                                    onClick={() =>
-                                      startEditing(order.id, row.product_id, {
-                                        quantity: 0,
-                                        unit: row.unit_label,
-                                        unitsCount: 0,
-                                      })
-                                    }
-                                    title={t("admin.clickToAdd")}
+                                    className="qty-confirm-btn"
+                                    onClick={applyEdit}
+                                    title="Confirm"
                                   >
-                                    +
+                                    ✓
                                   </button>
-                                )}
-                              </td>
-                            );
-                          })}
-                          <td
-                            className={`total-cell ${!isRound ? "not-round" : ""}`}
-                          >
-                            {row.totalUnits} {row.unit_label}
-                          </td>
-                          <td
-                            className={`carton-cell ${!isRound ? "not-round" : ""}`}
-                          >
-                            {requiresCarton ? (
-                              <>
-                                {cartonInfo.cartons}
-                                {cartonInfo.remainder > 0 && (
-                                  <span className="remainder">
-                                    {" "}
-                                    +{cartonInfo.remainder}
+                                  <button
+                                    className="qty-cancel-btn"
+                                    onClick={cancelEditing}
+                                    title="Cancel"
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                              ) : oq ? (
+                                <button
+                                  className="qty-button"
+                                  onClick={() =>
+                                    startEditing(order.id, row.product_id, oq)
+                                  }
+                                  title={t("admin.clickToEdit")}
+                                >
+                                  {oq.quantity}{" "}
+                                  <span className="qty-unit">
+                                    {oq.unit === "carton" && requiresCarton
+                                      ? "ctn"
+                                      : oq.unit === "carton"
+                                        ? row.unit_label
+                                        : oq.unit}
                                   </span>
-                                )}
-                              </>
-                            ) : (
-                              <span className="qty-empty">-</span>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
-        </div>
-      )}
+                                </button>
+                              ) : (
+                                <button
+                                  className="qty-button qty-add"
+                                  onClick={() =>
+                                    startEditing(order.id, row.product_id, {
+                                      quantity: 0,
+                                      unit: row.unit_label,
+                                      unitsCount: 0,
+                                    })
+                                  }
+                                  title={t("admin.clickToAdd")}
+                                >
+                                  +
+                                </button>
+                              )}
+                            </td>
+                          );
+                        })}
+                        <td
+                          className={`total-cell ${!isRound ? "not-round" : ""}`}
+                        >
+                          {row.totalUnits} {row.unit_label}
+                        </td>
+                        <td
+                          className={`carton-cell ${!isRound ? "not-round" : ""}`}
+                        >
+                          {requiresCarton ? (
+                            <>
+                              {cartonInfo.cartons}
+                              {cartonInfo.remainder > 0 && (
+                                <span className="remainder">
+                                  {" "}
+                                  +{cartonInfo.remainder}
+                                </span>
+                              )}
+                            </>
+                          ) : (
+                            <span className="qty-empty">-</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </div>
     </section>
   );
 }

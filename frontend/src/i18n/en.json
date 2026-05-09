@@ -204,7 +204,6 @@
     "copyFailed": "Failed to copy to clipboard"
   },
   "admin": {
-    "overview": "Overview",
     "noActiveMegaOrder": "No active Mega Buy order found. Place or deliver a Mega Buy order first.",
     "megaOrderOverview": "Mega Order Overview",
     "product": "Product",
@@ -217,6 +216,12 @@
     "saveChanges": "Save Changes",
     "discardChanges": "Discard",
     "changesSaved": "Changes saved successfully",
-    "saveFailed": "Failed to save changes"
+    "saveFailed": "Failed to save changes",
+    "exportToMadamHong": "Export to Madam Hong",
+    "productCode": "Product Code",
+    "productName": "Product Name",
+    "quantity": "Quantity",
+    "noDataToExport": "No data to export",
+    "exportSuccess": "Excel file exported successfully"
   }
 }

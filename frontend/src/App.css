@@ -1209,22 +1209,21 @@ body {
   color: #2d3748;
 }
 
-.admin-tabs {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 20px;
-}
-
 .admin-header {
   display: flex;
   align-items: center;
   gap: 15px;
   margin-bottom: 15px;
+  flex-wrap: wrap;
 }
 
 .admin-header h3 {
   margin: 0;
   color: #2d3748;
+}
+
+.admin-header .export-btn {
+  margin-left: auto;
 }
 
 .admin-actions {
