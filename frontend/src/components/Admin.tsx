@@ -53,6 +53,9 @@ export default function Admin() {
   const [deliveryStatus, setDeliveryStatus] = useState<
     Record<string, DeliveryStatus>
   >({});
+  const [paymentStatus, setPaymentStatus] = useState<Record<string, boolean>>(
+    {},
+  );
   const [hoveredCell, setHoveredCell] = useState<{
     productId: string | null;
     orderId: string | null;
@@ -611,6 +614,63 @@ export default function Admin() {
     [deliveryStatus],
   );
 
+  // Load payment status when megaOrder changes
+  useEffect(() => {
+    if (!megaOrder) {
+      setPaymentStatus({});
+      return;
+    }
+
+    const loadPaymentStatus = async () => {
+      try {
+        const res = await fetch(`/api/payment-status/${megaOrder.id}`);
+        if (!res.ok) throw new Error("Failed to load payment status");
+        const data = await res.json();
+        setPaymentStatus(data);
+      } catch (error) {
+        console.error("Error loading payment status:", error);
+      }
+    };
+
+    loadPaymentStatus();
+  }, [megaOrder?.id]);
+
+  // Toggle payment status for an order
+  const togglePaymentStatus = useCallback(
+    async (orderId: string) => {
+      if (!megaOrder) return;
+
+      const current = paymentStatus[orderId] || false;
+      const next = !current;
+
+      // Optimistic update
+      setPaymentStatus((prev) => ({ ...prev, [orderId]: next }));
+
+      // Save to backend
+      try {
+        const res = await fetch("/api/payment-status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            megaOrderId: megaOrder.id,
+            childOrderId: orderId,
+            paid: next,
+          }),
+        });
+
+        if (!res.ok) {
+          throw new Error("Failed to save payment status");
+        }
+      } catch (error) {
+        console.error("Error saving payment status:", error);
+        // Revert on error
+        setPaymentStatus((prev) => ({ ...prev, [orderId]: current }));
+        showToast(t("admin.saveFailed"), "error");
+      }
+    },
+    [megaOrder, paymentStatus, showToast, t],
+  );
+
   return (
     <section className="admin-section">
       <h2>{t("nav.admin")}</h2>
@@ -937,6 +997,19 @@ export default function Admin() {
                               kr ex. VAT)
                             </span>
                           </div>
+                          <button
+                            className={`payment-toggle ${paymentStatus[order.id] ? "paid" : "unpaid"}`}
+                            onClick={() => togglePaymentStatus(order.id)}
+                            title={
+                              paymentStatus[order.id]
+                                ? t("admin.markUnpaid")
+                                : t("admin.markPaid")
+                            }
+                          >
+                            {paymentStatus[order.id]
+                              ? t("admin.paid")
+                              : t("admin.unpaid")}
+                          </button>
                         </th>
                       ))}
                     </tr>

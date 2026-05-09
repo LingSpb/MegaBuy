@@ -238,6 +238,10 @@
     "exportSuccess": "Xuất file Excel thành công",
     "notDelivered": "Chưa giao",
     "delivered": "Đã giao",
-    "clickToToggle": "Nhấn để thay đổi trạng thái"
+    "clickToToggle": "Nhấn để thay đổi trạng thái",
+    "paid": "Đã thanh toán",
+    "unpaid": "Chưa thanh toán",
+    "markPaid": "Nhấn để đánh dấu đã thanh toán",
+    "markUnpaid": "Nhấn để đánh dấu chưa thanh toán"
   }
 }

@@ -1573,6 +1573,35 @@ body {
   display: block;
 }
 
+.payment-toggle {
+  margin-top: 6px;
+  padding: 4px 10px;
+  border: none;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.payment-toggle.unpaid {
+  background: #feb2b2;
+  color: #c53030;
+}
+
+.payment-toggle.unpaid:hover {
+  background: #fc8181;
+}
+
+.payment-toggle.paid {
+  background: #9ae6b4;
+  color: #276749;
+}
+
+.payment-toggle.paid:hover {
+  background: #68d391;
+}
+
 /* Discount Products Section */
 .discount-section {
   margin: 20px 0;

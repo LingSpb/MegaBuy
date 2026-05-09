@@ -238,6 +238,10 @@
     "exportSuccess": "Excel file exported successfully",
     "notDelivered": "Not delivered",
     "delivered": "Delivered",
-    "clickToToggle": "Click to change status"
+    "clickToToggle": "Click to change status",
+    "paid": "Paid",
+    "unpaid": "Unpaid",
+    "markPaid": "Click to mark as paid",
+    "markUnpaid": "Click to mark as unpaid"
   }
 }
