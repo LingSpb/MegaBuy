@@ -83,7 +83,9 @@ export default function Products({
       result = result.filter((p) => {
         const category = categories.find((c) => c.id === p.category_id);
         const categoryName = category?.name || "";
+        const productCode = (p.id || "").toString().toLowerCase();
         return (
+          productCode.includes(term) ||
           removeVietnameseTones(p.name.toLowerCase()).includes(term) ||
           removeVietnameseTones((p.description || "").toLowerCase()).includes(
             term,
