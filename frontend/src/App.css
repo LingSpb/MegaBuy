@@ -1198,3 +1198,243 @@ body {
   border-radius: 8px;
   border: 1px dashed #e2e8f0;
 }
+
+/* Admin Section */
+.admin-section {
+  padding: 20px;
+}
+
+.admin-section h2 {
+  margin-bottom: 20px;
+  color: #2d3748;
+}
+
+.admin-tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.admin-header {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 15px;
+}
+
+.admin-header h3 {
+  margin: 0;
+  color: #2d3748;
+}
+
+.admin-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 15px;
+  padding: 10px 15px;
+  background: #fef3c7;
+  border-radius: 8px;
+  border: 1px solid #f59e0b;
+}
+
+.pending-count {
+  color: #92400e;
+  font-weight: 500;
+}
+
+.overview-table-container {
+  overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.overview-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.overview-table th,
+.overview-table td {
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  text-align: center;
+}
+
+.overview-table th {
+  background: #f7fafc;
+  font-weight: 600;
+  color: #4a5568;
+  white-space: nowrap;
+}
+
+.overview-table .sticky-col {
+  position: sticky;
+  left: 0;
+  background: white;
+  z-index: 1;
+  text-align: left;
+  min-width: 200px;
+  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.05);
+}
+
+.overview-table th.sticky-col {
+  background: #f7fafc;
+  z-index: 2;
+}
+
+.product-cell {
+  line-height: 1.4;
+}
+
+.product-cell strong {
+  color: #2d3748;
+}
+
+.product-name {
+  color: #4a5568;
+  font-size: 12px;
+}
+
+.package-info {
+  color: #718096;
+  font-size: 11px;
+}
+
+.order-col {
+  min-width: 80px;
+}
+
+.qty-cell {
+  position: relative;
+}
+
+.qty-cell.pending {
+  background: #fef3c7;
+}
+
+.qty-button {
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 5px 10px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #2d3748;
+  border-radius: 4px;
+  min-width: 40px;
+  transition: all 0.15s;
+}
+
+.qty-button:hover {
+  background: #edf2f7;
+  border-color: #cbd5e0;
+}
+
+.qty-button.qty-add {
+  color: #48bb78;
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.qty-button.qty-add:hover {
+  background: #f0fff4;
+  border-color: #48bb78;
+}
+
+.qty-edit-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.qty-input {
+  width: 50px;
+  padding: 4px;
+  text-align: center;
+  border: 2px solid #667eea;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.qty-unit-select {
+  padding: 4px;
+  border: 2px solid #667eea;
+  border-radius: 4px;
+  font-size: 12px;
+  background: white;
+  cursor: pointer;
+}
+
+.qty-unit-label {
+  padding: 4px 6px;
+  font-size: 12px;
+  color: #4a5568;
+}
+
+.qty-confirm-btn,
+.qty-cancel-btn {
+  padding: 4px 6px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.qty-confirm-btn {
+  background: #48bb78;
+  color: white;
+}
+
+.qty-confirm-btn:hover {
+  background: #38a169;
+}
+
+.qty-cancel-btn {
+  background: #e2e8f0;
+  color: #4a5568;
+}
+
+.qty-cancel-btn:hover {
+  background: #cbd5e0;
+}
+
+.total-col,
+.carton-col {
+  font-weight: 600;
+  min-width: 70px;
+}
+
+.total-cell,
+.carton-cell {
+  font-weight: 600;
+}
+
+.total-cell.not-round,
+.carton-cell.not-round {
+  background: #fed7d7;
+  color: #c53030;
+}
+
+.remainder {
+  color: #c53030;
+  font-size: 12px;
+}
+
+.qty-unit {
+  color: #718096;
+  font-size: 11px;
+  font-weight: normal;
+}
+
+.qty-empty {
+  color: #cbd5e0;
+}
+
+.admin-placeholder {
+  padding: 40px;
+  text-align: center;
+  color: #718096;
+  background: #f7fafc;
+  border-radius: 8px;
+}

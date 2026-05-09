@@ -6,7 +6,8 @@
     "orders": "Đơn hàng",
     "products": "Sản phẩm",
     "shoppingList": "Danh sách yêu thích",
-    "categories": "Danh mục"
+    "categories": "Danh mục",
+    "admin": "Quản trị"
   },
   "common": {
     "search": "Tìm kiếm...",
@@ -201,5 +202,21 @@
     "listCleared": "Đã xóa danh sách",
     "copiedToClipboard": "Đã sao chép vào clipboard",
     "copyFailed": "Không thể sao chép"
+  },
+  "admin": {
+    "overview": "Tổng quan",
+    "noActiveMegaOrder": "Không có đơn MegaBuy nào đang hoạt động. Vui lòng đặt hoặc giao một đơn MegaBuy trước.",
+    "megaOrderOverview": "Tổng quan đơn Mega",
+    "product": "Sản phẩm",
+    "total": "Tổng",
+    "cartons": "Thùng",
+    "carton": "thùng",
+    "clickToEdit": "Nhấn để sửa",
+    "clickToAdd": "Nhấn để thêm",
+    "pendingChanges": "{count} thay đổi đang chờ",
+    "saveChanges": "Lưu thay đổi",
+    "discardChanges": "Hủy bỏ",
+    "changesSaved": "Đã lưu thay đổi thành công",
+    "saveFailed": "Lưu thay đổi thất bại"
   }
 }

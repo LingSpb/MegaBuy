@@ -6,9 +6,10 @@ import Categories from "./components/Categories";
 import Products from "./components/Products";
 import Orders from "./components/Orders";
 import FavoriteList from "./components/FavoriteList";
+import Admin from "./components/Admin";
 import "./App.css";
 
-type TabName = "orders" | "categories" | "products" | "shopping-list";
+type TabName = "orders" | "categories" | "products" | "shopping-list" | "admin";
 
 function AppContent() {
   const [activeTab, setActiveTab] = useState<TabName>("orders");
@@ -56,6 +57,12 @@ function AppContent() {
           >
             {t("nav.categories")}
           </button>
+          <button
+            className={`nav-btn ${activeTab === "admin" ? "active" : ""}`}
+            onClick={() => handleTabChange("admin")}
+          >
+            {t("nav.admin")}
+          </button>
         </div>
         <div className="language-switcher">
           <button
@@ -84,6 +91,7 @@ function AppContent() {
         />
       )}
       {activeTab === "shopping-list" && <FavoriteList />}
+      {activeTab === "admin" && <Admin />}
 
       <Toast />
     </div>

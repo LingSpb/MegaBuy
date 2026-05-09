@@ -6,7 +6,8 @@
     "orders": "Orders",
     "products": "Products",
     "shoppingList": "Favorite List",
-    "categories": "Categories"
+    "categories": "Categories",
+    "admin": "Admin"
   },
   "common": {
     "search": "Search...",
@@ -201,5 +202,21 @@
     "listCleared": "Favorite list cleared",
     "copiedToClipboard": "Copied to clipboard",
     "copyFailed": "Failed to copy to clipboard"
+  },
+  "admin": {
+    "overview": "Overview",
+    "noActiveMegaOrder": "No active Mega Buy order found. Place or deliver a Mega Buy order first.",
+    "megaOrderOverview": "Mega Order Overview",
+    "product": "Product",
+    "total": "Total",
+    "cartons": "Cartons",
+    "carton": "carton",
+    "clickToEdit": "Click to edit",
+    "clickToAdd": "Click to add",
+    "pendingChanges": "{count} pending changes",
+    "saveChanges": "Save Changes",
+    "discardChanges": "Discard",
+    "changesSaved": "Changes saved successfully",
+    "saveFailed": "Failed to save changes"
   }
 }

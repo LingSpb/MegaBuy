@@ -49,6 +49,29 @@ interface AppContextValue {
   placeMegaBuyOrder: (id: string) => Promise<Order>;
   deliverMegaBuyOrder: (id: string) => Promise<Order>;
   closeMegaBuyOrder: (id: string) => Promise<Order>;
+  updateOrderItem: (
+    orderId: string,
+    productId: string,
+    quantity: number,
+    unit?: string,
+  ) => Promise<void>;
+  bulkUpdateOrderItems: (
+    edits: Array<{
+      orderId: string;
+      productId: string;
+      quantity: number;
+      unit: string;
+    }>,
+  ) => Promise<{
+    successCount: number;
+    failCount: number;
+    results: Array<{
+      orderId: string;
+      productId: string;
+      success: boolean;
+      error?: string;
+    }>;
+  }>;
   getCategoryVat: (categoryId: string) => number;
   calculatePriceWithVat: (price: number, vatPercent: number) => number;
   fetchShoppingList: () => Promise<void>;
@@ -294,6 +317,72 @@ export function AppProvider({ children }: AppProviderProps) {
     [fetchOrders],
   );
 
+  // Update a single order item quantity
+  const updateOrderItem = useCallback(
+    async (
+      orderId: string,
+      productId: string,
+      quantity: number,
+      unit?: string,
+    ) => {
+      console.log("updateOrderItem API call:", {
+        orderId,
+        productId,
+        quantity,
+        unit,
+      });
+      const res = await fetch(`/api/orders/${orderId}/items/${productId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quantity, unit }),
+      });
+      console.log("updateOrderItem response status:", res.status);
+      if (!res.ok) {
+        const data = await res.json();
+        console.error("updateOrderItem error response:", data);
+        throw new Error(data.error || "Failed to update order item");
+      }
+      await fetchOrders();
+    },
+    [fetchOrders],
+  );
+
+  const bulkUpdateOrderItems = useCallback(
+    async (
+      edits: Array<{
+        orderId: string;
+        productId: string;
+        quantity: number;
+        unit: string;
+      }>,
+    ): Promise<{
+      successCount: number;
+      failCount: number;
+      results: Array<{
+        orderId: string;
+        productId: string;
+        success: boolean;
+        error?: string;
+      }>;
+    }> => {
+      console.log("bulkUpdateOrderItems API call:", edits.length, "edits");
+      const res = await fetch("/api/admin/bulk-update-items", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ edits }),
+      });
+      console.log("bulkUpdateOrderItems response status:", res.status);
+      const data = await res.json();
+      if (!res.ok) {
+        console.error("bulkUpdateOrderItems error response:", data);
+        throw new Error(data.error || "Failed to bulk update order items");
+      }
+      await fetchOrders();
+      return data;
+    },
+    [fetchOrders],
+  );
+
   // Helper functions
   const getCategoryVat = useCallback(
     (categoryId: string): number => {
@@ -417,6 +506,8 @@ export function AppProvider({ children }: AppProviderProps) {
     placeMegaBuyOrder,
     deliverMegaBuyOrder,
     closeMegaBuyOrder,
+    updateOrderItem,
+    bulkUpdateOrderItems,
     getCategoryVat,
     calculatePriceWithVat,
     fetchShoppingList,
