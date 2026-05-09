@@ -386,7 +386,8 @@ export default function Products({
             const category = categories.find(
               (c) => c.id === product.category_id,
             );
-            const categoryName = category?.name || "Unknown";
+            const categoryName =
+              category?.name || product.category_id || "Unknown";
 
             return (
               <div key={product.id} className="card">

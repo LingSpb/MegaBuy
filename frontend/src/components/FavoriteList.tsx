@@ -78,6 +78,8 @@ export default function FavoriteList() {
             const category = categories.find(
               (c) => c.id === product.category_id,
             );
+            const categoryName =
+              category?.name || product.category_id || t("common.noCategory");
 
             return (
               <div key={product.id} className="card">
@@ -86,8 +88,7 @@ export default function FavoriteList() {
                     {product.id} - {product.name}
                   </h3>
                   <p className="card-meta">
-                    {category?.name || t("common.noCategory")} • {product.price}{" "}
-                    kr/
+                    {categoryName} • {product.price} kr/
                     {product.unit_label || t("orders.unit")}
                     {product.selling_type === "package" &&
                       ` • ${product.package_quantity} ${t("common.perCarton")}`}

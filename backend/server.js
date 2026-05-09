@@ -321,6 +321,79 @@ function getMegaChildOrderIds(order) {
 
 // ==================== SUPABASE DATA HELPERS ====================
 
+/**
+ * CATEGORY SYSTEM
+ * ================
+ * Categories are auto-derived from product codes.
+ * The first letter of a product code determines its category.
+ *
+ * Examples:
+ *   T04327 -> Category "T" (Thai/Sauces)
+ *   D01699 -> Category "D" (Frozen/Meats)
+ *   J04048 -> Category "J" (Japanese)
+ *
+ * Categories are auto-created if they don't exist.
+ * See: docs/API_REFERENCE.md for full documentation.
+ */
+
+// Category name mapping based on product code prefix
+const CATEGORY_NAMES = {
+  C: "Chinese",
+  D: "Frozen (Đông lạnh)",
+  F: "Fruits & Desserts",
+  H: "H",
+  I: "I",
+  J: "Japanese",
+  K: "Korean",
+  L: "Lee Kum Kee",
+  M: "Monika",
+  N: "Dairy & Non-Food",
+  P: "Philippines",
+  T: "Thai",
+  U: "UK/European",
+  V: "Vietnamese",
+};
+
+// Extract category ID from product code (first letter A-Z)
+function extractCategoryFromProductCode(productCode) {
+  if (!productCode || productCode.length === 0) return null;
+  const firstChar = String(productCode).charAt(0).toUpperCase();
+  if (/^[A-Z]$/.test(firstChar)) {
+    return firstChar;
+  }
+  return null;
+}
+
+// Get category name from ID (uses mapping or falls back to ID)
+function getCategoryName(categoryId) {
+  return CATEGORY_NAMES[categoryId] || categoryId;
+}
+
+// Ensure category exists, create if not (auto-creates with proper name)
+async function ensureCategoryExists(categoryId) {
+  if (!categoryId) return false;
+
+  const { data: existing } = await supabase
+    .from("categories")
+    .select("id")
+    .eq("id", categoryId)
+    .single();
+
+  if (!existing) {
+    const { error } = await supabase.from("categories").insert({
+      id: categoryId,
+      name: getCategoryName(categoryId),
+      description: "",
+      created_at: new Date().toISOString(),
+    });
+    if (error && !error.message.includes("duplicate")) {
+      console.error(`Failed to create category ${categoryId}:`, error);
+      return false;
+    }
+  }
+  return true;
+}
+
 async function fetchCategories() {
   const { data, error } = await supabase
     .from("categories")
@@ -726,7 +799,7 @@ app.get("/api/products/:id", async (req, res) => {
 
 // Create new product
 app.post("/api/products", async (req, res) => {
-  const {
+  let {
     name,
     brand,
     category_id,
@@ -740,9 +813,6 @@ app.post("/api/products", async (req, res) => {
   if (!name || name.trim() === "") {
     return res.status(400).json({ error: "Product name is required" });
   }
-  if (!category_id) {
-    return res.status(400).json({ error: "Category ID is required" });
-  }
   if (!selling_type || !["unit", "package"].includes(selling_type)) {
     return res
       .status(400)
@@ -752,18 +822,19 @@ app.post("/api/products", async (req, res) => {
     return res.status(400).json({ error: "Price must be greater than 0" });
   }
 
+  const productId = req.body.id || Date.now().toString();
+
+  // Auto-derive category from product code if not provided
+  if (!category_id) {
+    category_id = extractCategoryFromProductCode(productId);
+  }
+
+  // Ensure category exists (create if needed)
+  if (category_id) {
+    await ensureCategoryExists(category_id);
+  }
+
   try {
-    // Check if category exists
-    const { data: category } = await supabase
-      .from("categories")
-      .select("id")
-      .eq("id", category_id)
-      .single();
-
-    if (!category) {
-      return res.status(400).json({ error: "Category not found" });
-    }
-
     const productId = req.body.id || Date.now().toString();
     const pkgQty =
       selling_type === "package" ? parseFloat(package_quantity) || 1 : 1;
@@ -1139,6 +1210,12 @@ app.post("/api/products/import", upload.single("file"), async (req, res) => {
         .eq("id", productCode)
         .single();
 
+      // Extract category from product code
+      const categoryId = extractCategoryFromProductCode(productCode);
+      if (categoryId) {
+        await ensureCategoryExists(categoryId);
+      }
+
       if (existingProduct) {
         // Update existing product
         const updateData = {
@@ -1160,6 +1237,18 @@ app.post("/api/products/import", upload.single("file"), async (req, res) => {
             `Row ${rowNum}: Update failed - ${updateError.message}`,
           );
         } else {
+          // Upsert product_metadata with category
+          if (categoryId) {
+            await supabase.from("product_metadata").upsert(
+              {
+                product_id: productCode,
+                category_id: categoryId,
+                selling_type: sellingType,
+                unit_label: unitLabel || "unit",
+              },
+              { onConflict: "product_id" },
+            );
+          }
           results.updated++;
         }
       } else {
@@ -1183,6 +1272,18 @@ app.post("/api/products/import", upload.single("file"), async (req, res) => {
             `Row ${rowNum}: Insert failed - ${insertError.message}`,
           );
         } else {
+          // Insert product_metadata with category
+          if (categoryId) {
+            await supabase.from("product_metadata").upsert(
+              {
+                product_id: productCode,
+                category_id: categoryId,
+                selling_type: sellingType,
+                unit_label: unitLabel || "unit",
+              },
+              { onConflict: "product_id" },
+            );
+          }
           results.created++;
         }
       }
