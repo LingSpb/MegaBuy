@@ -26,11 +26,25 @@ It supports:
 ```text
 MegaBuy/
 ├── backend/
-│   ├── server.js
+│   ├── server.js              # Entry point (~40 lines)
 │   ├── api/
-│   │   └── index.js
-│   └── lib/
-│       └── supabase.js
+│   │   └── index.js           # Vercel serverless handler
+│   ├── lib/
+│   │   ├── supabase.js        # Supabase client
+│   │   ├── products.js        # Product data access
+│   │   └── orders.js          # Order data access
+│   ├── routes/
+│   │   ├── categories.js      # /api/categories
+│   │   ├── products.js        # /api/products
+│   │   ├── orders.js          # /api/orders
+│   │   ├── admin.js           # /api/admin
+│   │   ├── favoriteList.js    # /api/favorite-list
+│   │   ├── deliveryStatus.js  # /api/delivery-status
+│   │   ├── paymentStatus.js   # /api/payment-status
+│   │   └── discountProducts.js # /api/discount-products
+│   └── utils/
+│       ├── pricing.js         # Pricing & aggregation logic
+│       └── categories.js      # Category helpers
 ├── frontend/
 │   ├── src/
 │   │   ├── components/

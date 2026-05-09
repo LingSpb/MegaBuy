@@ -424,11 +424,11 @@ export function AppProvider({ children }: AppProviderProps) {
     [],
   );
 
-  // Shopping list (stores product IDs)
+  // Favorite list (stores product IDs)
   const fetchShoppingList = useCallback(async () => {
     try {
-      const res = await fetch("/api/shopping-list");
-      if (!res.ok) throw new Error("Failed to load shopping list");
+      const res = await fetch("/api/favorite-list");
+      if (!res.ok) throw new Error("Failed to load favorite list");
       const data = await res.json();
       // Extract product IDs from response
       setShoppingList(
@@ -436,7 +436,7 @@ export function AppProvider({ children }: AppProviderProps) {
       );
     } catch (error) {
       showToast(
-        "Error loading shopping list: " + (error as Error).message,
+        "Error loading favorite list: " + (error as Error).message,
         "error",
       );
     }
@@ -445,7 +445,7 @@ export function AppProvider({ children }: AppProviderProps) {
   const addToShoppingList = useCallback(
     async (productId: string, addedBy?: string, note?: string) => {
       try {
-        const res = await fetch("/api/shopping-list", {
+        const res = await fetch("/api/favorite-list", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -456,10 +456,10 @@ export function AppProvider({ children }: AppProviderProps) {
         });
         if (!res.ok) {
           const err = await res.json();
-          throw new Error(err.error || "Failed to add to shopping list");
+          throw new Error(err.error || "Failed to add to favorite list");
         }
         setShoppingList((prev) => [productId, ...prev]);
-        showToast("Added to shopping list");
+        showToast("Added to favorite list");
       } catch (error) {
         showToast((error as Error).message, "error");
       }
@@ -470,12 +470,12 @@ export function AppProvider({ children }: AppProviderProps) {
   const removeFromShoppingList = useCallback(
     async (productId: string) => {
       try {
-        const res = await fetch(`/api/shopping-list/${productId}`, {
+        const res = await fetch(`/api/favorite-list/${productId}`, {
           method: "DELETE",
         });
-        if (!res.ok) throw new Error("Failed to remove from shopping list");
+        if (!res.ok) throw new Error("Failed to remove from favorite list");
         setShoppingList((prev) => prev.filter((id) => id !== productId));
-        showToast("Removed from shopping list");
+        showToast("Removed from favorite list");
       } catch (error) {
         showToast((error as Error).message, "error");
       }
@@ -485,10 +485,10 @@ export function AppProvider({ children }: AppProviderProps) {
 
   const clearShoppingList = useCallback(async () => {
     try {
-      const res = await fetch("/api/shopping-list", { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to clear shopping list");
+      const res = await fetch("/api/favorite-list", { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to clear favorite list");
       setShoppingList([]);
-      showToast("Shopping list cleared");
+      showToast("Favorite list cleared");
     } catch (error) {
       showToast((error as Error).message, "error");
     }

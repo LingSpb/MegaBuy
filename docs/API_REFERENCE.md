@@ -395,6 +395,212 @@ Response:
 
 ---
 
+## Favorite List
+
+### `GET /api/favorite-list`
+
+Returns all favorite list items with product details.
+
+Response:
+
+```json
+[
+  {
+    "id": 1,
+    "product_id": "T04327",
+    "added_by": "User",
+    "note": "For next order",
+    "created_at": "2026-05-09T...",
+    "product": { "id": "T04327", "name": "..." }
+  }
+]
+```
+
+### `POST /api/favorite-list`
+
+Add product to favorite list.
+
+Body:
+
+```json
+{
+  "product_id": "T04327",
+  "added_by": "User",
+  "note": "Optional note"
+}
+```
+
+### `DELETE /api/favorite-list/:productId`
+
+Remove product from favorite list.
+
+### `DELETE /api/favorite-list`
+
+Clear entire favorite list.
+
+---
+
+## Delivery Status
+
+### `GET /api/delivery-status/:megaOrderId`
+
+Get delivery status for all items in a mega order.
+
+Response:
+
+```json
+{
+  "ord_child1:T04327": "delivered",
+  "ord_child1:D01699": "none"
+}
+```
+
+### `POST /api/delivery-status`
+
+Update delivery status for a specific item.
+
+Body:
+
+```json
+{
+  "megaOrderId": "ord_mega",
+  "childOrderId": "ord_child1",
+  "productId": "T04327",
+  "status": "delivered"
+}
+```
+
+Status values: `"none"`, `"delivered"`
+
+---
+
+## Payment Status
+
+### `GET /api/payment-status/:megaOrderId`
+
+Get payment status for all child orders in a mega order.
+
+Response:
+
+```json
+{
+  "ord_child1": true,
+  "ord_child2": false
+}
+```
+
+### `POST /api/payment-status`
+
+Update payment status for a child order.
+
+Body:
+
+```json
+{
+  "megaOrderId": "ord_mega",
+  "childOrderId": "ord_child1",
+  "paid": true
+}
+```
+
+---
+
+## Discount Products
+
+### `GET /api/discount-products`
+
+Returns all discount products with product details.
+
+Response:
+
+```json
+[
+  {
+    "id": 1,
+    "product_id": "T04327",
+    "product_name": "Fish Sauce",
+    "original_price": 45.5,
+    "discount_price": 39.9,
+    "package_quantity": 12,
+    "unit_label": "bottle",
+    "note": "May sale",
+    "created_at": "2026-05-09T..."
+  }
+]
+```
+
+### `POST /api/discount-products`
+
+Add or update discount for a product.
+
+Body:
+
+```json
+{
+  "product_id": "T04327",
+  "discount_price": 39.9,
+  "note": "May sale"
+}
+```
+
+### `DELETE /api/discount-products/:productId`
+
+Remove discount from a product.
+
+### `DELETE /api/discount-products`
+
+Clear all discounts.
+
+---
+
+## Admin
+
+### `POST /api/admin/bulk-update-items`
+
+Bulk update order items across multiple orders.
+
+Body:
+
+```json
+{
+  "edits": [
+    {
+      "orderId": "ord_1",
+      "productId": "T04327",
+      "quantity": 5,
+      "unit": "unit"
+    },
+    { "orderId": "ord_2", "productId": "D01699", "quantity": 2 }
+  ]
+}
+```
+
+Response:
+
+```json
+{
+  "message": "3 items updated, 0 failed",
+  "successCount": 3,
+  "failCount": 0,
+  "results": [...]
+}
+```
+
+### `PATCH /api/admin/orders/:orderId/items/:productId`
+
+Update a single order item quantity.
+
+Body:
+
+```json
+{
+  "quantity": 5,
+  "unit": "carton"
+}
+```
+
+---
+
 ## Common Error Responses
 
 - `400` for validation/business rule failures
