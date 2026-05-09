@@ -1222,7 +1222,7 @@ body {
   color: #2d3748;
 }
 
-.admin-header .export-btn {
+.admin-header .state-badge + .export-btn {
   margin-left: auto;
 }
 

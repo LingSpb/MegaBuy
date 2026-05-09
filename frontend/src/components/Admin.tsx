@@ -381,6 +381,101 @@ export default function Admin() {
     showToast(t("admin.exportSuccess"), "success");
   }, [productRows, showToast, t]);
 
+  // Export full Mega Buy Order with all people's quantities
+  const exportMegaBuyOrder = useCallback(() => {
+    if (productRows.length === 0 || childOrders.length === 0) {
+      showToast(t("admin.noDataToExport"), "error");
+      return;
+    }
+
+    // Build header row: Product Code, Product Name, [Person Names...], Total, Cartons
+    const headers = [
+      t("admin.productCode"),
+      t("admin.productName"),
+      ...childOrders.map((o) => o.person_name),
+      t("admin.total"),
+      t("admin.cartons"),
+    ];
+
+    // Build data rows
+    const dataRows = productRows.map((row) => {
+      const requiresCarton = row.package_quantity > 1;
+      const cartons = requiresCarton
+        ? Math.floor(row.totalUnits / row.package_quantity)
+        : 0;
+      const remainder = requiresCarton
+        ? row.totalUnits % row.package_quantity
+        : 0;
+
+      // Format carton info
+      let cartonStr: string;
+      if (requiresCarton) {
+        if (cartons > 0 && remainder > 0) {
+          cartonStr = `${cartons} + ${remainder}`;
+        } else if (cartons > 0) {
+          cartonStr = String(cartons);
+        } else {
+          cartonStr = `0 + ${remainder}`;
+        }
+      } else {
+        cartonStr = "-";
+      }
+
+      // Build row with quantities for each person
+      const rowData: Record<string, string | number> = {
+        [t("admin.productCode")]: row.product_id,
+        [t("admin.productName")]: row.product_name,
+      };
+
+      // Add each person's quantity
+      for (const order of childOrders) {
+        const oq = row.orderQuantities[order.id];
+        if (oq) {
+          // Format: "2 ctn" or "5 units"
+          const unitDisplay =
+            oq.unit === "carton" && requiresCarton
+              ? "ctn"
+              : oq.unit === "carton"
+                ? row.unit_label
+                : oq.unit;
+          rowData[order.person_name] = `${oq.quantity} ${unitDisplay}`;
+        } else {
+          rowData[order.person_name] = "";
+        }
+      }
+
+      rowData[t("admin.total")] = `${row.totalUnits} ${row.unit_label}`;
+      rowData[t("admin.cartons")] = cartonStr;
+
+      return rowData;
+    });
+
+    // Create worksheet from data
+    const ws = XLSX.utils.json_to_sheet(dataRows, { header: headers });
+
+    // Set column widths
+    const colWidths = [
+      { wch: 12 }, // Product Code
+      { wch: 35 }, // Product Name
+      ...childOrders.map(() => ({ wch: 12 })), // Person columns
+      { wch: 15 }, // Total
+      { wch: 12 }, // Cartons
+    ];
+    ws["!cols"] = colWidths;
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "MegaBuy Order");
+
+    // Generate filename with date and mega order name
+    const date = new Date().toISOString().split("T")[0];
+    const filename = `MegaBuy_${megaOrder?.person_name || "Order"}_${date}.xlsx`;
+
+    // Download the file
+    XLSX.writeFile(wb, filename);
+
+    showToast(t("admin.exportSuccess"), "success");
+  }, [productRows, childOrders, megaOrder, showToast, t]);
+
   return (
     <section className="admin-section">
       <h2>{t("nav.admin")}</h2>
@@ -405,6 +500,13 @@ export default function Admin() {
                 disabled={productRows.length === 0}
               >
                 {t("admin.exportToMadamHong")}
+              </button>
+              <button
+                className="btn btn-secondary export-btn"
+                onClick={exportMegaBuyOrder}
+                disabled={productRows.length === 0}
+              >
+                {t("admin.exportMegaBuyOrder")}
               </button>
             </div>
 
