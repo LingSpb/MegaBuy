@@ -116,4 +116,6 @@ export interface ProductDetailsData {
     itemsSummary: string;
   }>;
   productId: string;
+  discountUnitPrice?: number | null;
+  discountCartonPrice?: number | null;
 }

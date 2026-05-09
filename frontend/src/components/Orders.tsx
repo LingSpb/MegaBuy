@@ -31,6 +31,7 @@ export default function Orders() {
     products,
     orders,
     shoppingList,
+    discountProducts,
     saveOrder,
     deleteOrder,
     createMegaBuyOrder,
@@ -41,6 +42,10 @@ export default function Orders() {
     showToast,
     getCategoryVat,
     calculatePriceWithVat,
+    addDiscountProduct,
+    removeDiscountProduct,
+    clearDiscountProducts,
+    getDiscountPrice,
   } = useApp();
   const { t } = useI18n();
 
@@ -63,6 +68,11 @@ export default function Orders() {
     items: [{ product_id: "", quantity: 1, unit: "carton" }],
   });
   const [orderModalError, setOrderModalError] = useState<string | null>(null);
+  const [discountSectionOpen, setDiscountSectionOpen] = useState(true);
+  const [discountProductId, setDiscountProductId] = useState("");
+  const [discountPrice, setDiscountPrice] = useState("");
+  const [discountNote, setDiscountNote] = useState("");
+  const [discountSearch, setDiscountSearch] = useState("");
 
   // Filter and sort orders
   const {
@@ -220,7 +230,18 @@ export default function Orders() {
       const qty = Number(item.quantity);
       if (!product || !item.quantity || qty <= 0) return;
 
-      const unitPrice = getUnitPrice(product, item.unit);
+      // Use discount price if available
+      const discountPrice = getDiscountPrice(item.product_id);
+      let unitPrice: number | null;
+      if (discountPrice !== null) {
+        // Discount price is the unit price
+        const packageQty = product.package_quantity || 1;
+        unitPrice =
+          item.unit === "carton" ? discountPrice * packageQty : discountPrice;
+      } else {
+        unitPrice = getUnitPrice(product, item.unit);
+      }
+
       if (unitPrice !== null) {
         total += Number((unitPrice * qty).toFixed(2));
       }
@@ -573,6 +594,13 @@ export default function Orders() {
     const unitPrice = product.price;
     const cartonPrice = Number((product.price * packageQuantity).toFixed(2));
 
+    // Check for discount price
+    const discountPrice = getDiscountPrice(productId);
+    const discountUnitPrice = discountPrice;
+    const discountCartonPrice = discountPrice
+      ? Number((discountPrice * packageQuantity).toFixed(2))
+      : null;
+
     setProductDetailsData({
       productInfoText,
       totalSum,
@@ -581,6 +609,8 @@ export default function Orders() {
       productPrice: cartonPrice,
       unitPrice,
       packageQuantity,
+      discountUnitPrice,
+      discountCartonPrice,
     });
     setProductDetailsModalOpen(true);
   };
@@ -687,13 +717,31 @@ export default function Orders() {
           Boolean(order.locked_by_mega_order_id)));
 
     const isMegaBuy = order.order_type === "mega_buy";
-    const totalAmount = Number(order.total_amount || 0);
-    const totalWithVat = calculateOrderTotalWithVat(
-      order,
-      products,
-      getCategoryVat,
-      calculatePriceWithVat,
-    );
+
+    // Calculate totals with discount prices
+    let totalAmount = 0;
+    let totalWithVat = 0;
+    order.items.forEach((item) => {
+      const product = products.find((p) => p.id === item.product_id);
+      if (!product) return;
+
+      const packageQty = product.package_quantity || 1;
+      const discountPrice = getDiscountPrice(item.product_id);
+      const baseUnitPrice =
+        discountPrice !== null ? discountPrice : Number(product.price);
+
+      // Calculate line total based on unit
+      const isCarton = item.unit?.toLowerCase() === "carton";
+      const lineTotal = isCarton
+        ? baseUnitPrice * packageQty * item.quantity
+        : baseUnitPrice * item.quantity;
+
+      totalAmount += lineTotal;
+
+      // Add VAT
+      const vat = getCategoryVat(product.category_id);
+      totalWithVat += calculatePriceWithVat(lineTotal, vat);
+    });
 
     return (
       <div
@@ -866,6 +914,188 @@ export default function Orders() {
         />
       </div>
 
+      {/* Discount Products Section */}
+      <div className="discount-section">
+        <button
+          className="discount-toggle"
+          onClick={() => setDiscountSectionOpen(!discountSectionOpen)}
+        >
+          <span className="discount-toggle-icon">
+            {discountSectionOpen ? "▼" : "▶"}
+          </span>
+          <span>{t("orders.discountProducts")}</span>
+          {discountProducts.length > 0 && (
+            <span className="discount-count-badge">
+              {discountProducts.length}
+            </span>
+          )}
+        </button>
+
+        {discountSectionOpen && (
+          <div className="discount-content">
+            <div className="discount-form">
+              <div className="discount-form-row">
+                <div className="discount-product-search">
+                  <input
+                    type="text"
+                    placeholder={t("orders.searchProduct")}
+                    value={discountSearch}
+                    onChange={(e) => setDiscountSearch(e.target.value)}
+                    list="discount-product-list"
+                  />
+                  <datalist id="discount-product-list">
+                    {products
+                      .filter(
+                        (p) =>
+                          !discountSearch ||
+                          p.name
+                            .toLowerCase()
+                            .includes(discountSearch.toLowerCase()) ||
+                          p.id
+                            .toLowerCase()
+                            .includes(discountSearch.toLowerCase()),
+                      )
+                      .slice(0, 20)
+                      .map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} ({p.price} kr)
+                        </option>
+                      ))}
+                  </datalist>
+                </div>
+                <select
+                  className="discount-product-select"
+                  value={discountProductId}
+                  onChange={(e) => {
+                    setDiscountProductId(e.target.value);
+                    const product = products.find(
+                      (p) => p.id === e.target.value,
+                    );
+                    if (product) {
+                      setDiscountPrice(String(product.price));
+                    }
+                  }}
+                >
+                  <option value="">{t("orders.selectProduct")}</option>
+                  {products
+                    .filter(
+                      (p) =>
+                        !discountSearch ||
+                        p.name
+                          .toLowerCase()
+                          .includes(discountSearch.toLowerCase()) ||
+                        p.id
+                          .toLowerCase()
+                          .includes(discountSearch.toLowerCase()),
+                    )
+                    .slice(0, 50)
+                    .map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.id} - {p.name} ({p.price} kr)
+                      </option>
+                    ))}
+                </select>
+                <input
+                  type="number"
+                  className="discount-price-input"
+                  placeholder={t("orders.discountPrice")}
+                  value={discountPrice}
+                  onChange={(e) => setDiscountPrice(e.target.value)}
+                  step="0.01"
+                  min="0"
+                />
+                <input
+                  type="text"
+                  className="discount-note-input"
+                  placeholder={t("orders.note")}
+                  value={discountNote}
+                  onChange={(e) => setDiscountNote(e.target.value)}
+                />
+                <button
+                  className="btn btn-primary"
+                  onClick={() => {
+                    if (discountProductId && discountPrice) {
+                      addDiscountProduct(
+                        discountProductId,
+                        parseFloat(discountPrice),
+                        discountNote || undefined,
+                      );
+                      setDiscountProductId("");
+                      setDiscountPrice("");
+                      setDiscountNote("");
+                      setDiscountSearch("");
+                    }
+                  }}
+                  disabled={!discountProductId || !discountPrice}
+                >
+                  {t("common.add")}
+                </button>
+              </div>
+            </div>
+
+            {discountProducts.length > 0 && (
+              <>
+                <div className="discount-list">
+                  <table className="discount-table">
+                    <thead>
+                      <tr>
+                        <th>{t("orders.productCode")}</th>
+                        <th>{t("orders.productName")}</th>
+                        <th>{t("orders.originalPrice")}</th>
+                        <th>{t("orders.discountPrice")}</th>
+                        <th>{t("orders.note")}</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {discountProducts.map((d) => (
+                        <tr key={d.product_id}>
+                          <td>{d.product_id}</td>
+                          <td>{d.product_name}</td>
+                          <td className="price-original">
+                            {d.original_price} kr
+                          </td>
+                          <td className="price-discount">
+                            {d.discount_price} kr
+                          </td>
+                          <td>{d.note || "-"}</td>
+                          <td>
+                            <button
+                              className="btn btn-danger btn-sm"
+                              onClick={() =>
+                                removeDiscountProduct(d.product_id)
+                              }
+                            >
+                              ✕
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="discount-actions">
+                  <button
+                    className="btn btn-danger"
+                    onClick={() => {
+                      if (window.confirm(t("orders.confirmClearDiscounts"))) {
+                        clearDiscountProducts();
+                      }
+                    }}
+                  >
+                    {t("orders.clearAllDiscounts")}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {discountProducts.length === 0 && (
+              <div className="discount-empty">{t("orders.noDiscountsYet")}</div>
+            )}
+          </div>
+        )}
+      </div>
+
       <div className="orders-sections">
         <section className="orders-section">
           <h3 className="orders-section-title">{t("orders.megaBuyOrders")}</h3>
@@ -1017,14 +1247,35 @@ export default function Orders() {
               {orderForm.items.map((item, index) => {
                 const product = products.find((p) => p.id === item.product_id);
                 const units = product ? getProductUnits(product) : ["carton"];
-                const unitPrice = product
-                  ? getUnitPrice(product, item.unit)
-                  : null;
+
+                // Use discount price if available
+                const discountPrice = getDiscountPrice(item.product_id);
+                let unitPrice: number | null = null;
+                let originalUnitPrice: number | null = null;
+                let hasDiscount = false;
+                if (product) {
+                  originalUnitPrice = getUnitPrice(product, item.unit);
+                  if (discountPrice !== null) {
+                    hasDiscount = true;
+                    const packageQty = product.package_quantity || 1;
+                    unitPrice =
+                      item.unit === "carton"
+                        ? discountPrice * packageQty
+                        : discountPrice;
+                  } else {
+                    unitPrice = originalUnitPrice;
+                  }
+                }
+
                 const qty = Number(item.quantity);
                 const lineTotal =
                   unitPrice !== null && qty > 0
                     ? (unitPrice * qty).toFixed(2)
                     : "0.00";
+                const originalLineTotal =
+                  hasDiscount && originalUnitPrice !== null && qty > 0
+                    ? (originalUnitPrice * qty).toFixed(2)
+                    : null;
 
                 return (
                   <div key={index} className="order-item-row">
@@ -1033,7 +1284,7 @@ export default function Orders() {
                       value={item.product_id}
                       title={
                         item.product_id
-                          ? `${item.product_id} - ${products.find((p) => p.id === item.product_id)?.name || ""}`
+                          ? `${item.product_id} - ${products.find((p) => p.id === item.product_id)?.name || ""}${hasDiscount ? " (Discount)" : ""}`
                           : ""
                       }
                       onChange={(e) =>
@@ -1103,7 +1354,19 @@ export default function Orders() {
                         </option>
                       ))}
                     </select>
-                    <span className="order-line-total">{lineTotal} kr</span>
+                    <span
+                      className={`order-line-total ${hasDiscount ? "has-discount" : ""}`}
+                      title={hasDiscount ? "Discount price applied" : ""}
+                    >
+                      {hasDiscount && originalLineTotal && (
+                        <span className="original-price">
+                          {originalLineTotal} kr
+                        </span>
+                      )}
+                      <span className={hasDiscount ? "discount-price" : ""}>
+                        {lineTotal} kr
+                      </span>
+                    </span>
                     <button
                       type="button"
                       className="btn btn-danger btn-sm"
@@ -1179,9 +1442,45 @@ export default function Orders() {
               <small
                 style={{ display: "block", color: "#fff", marginTop: "4px" }}
               >
-                {productDetailsData.unitPrice} kr/{t("orders.unit")} |{" "}
-                {productDetailsData.productPrice} kr/carton (
-                {productDetailsData.packageQuantity} {t("orders.unit")})
+                {productDetailsData.discountUnitPrice ? (
+                  <>
+                    <span
+                      className="original-price"
+                      style={{
+                        textDecoration: "line-through",
+                        color: "#a0aec0",
+                        marginRight: "4px",
+                      }}
+                    >
+                      {productDetailsData.unitPrice} kr
+                    </span>
+                    <span style={{ color: "#68d391" }}>
+                      {productDetailsData.discountUnitPrice} kr
+                    </span>
+                    /{t("orders.unit")} |{" "}
+                    <span
+                      className="original-price"
+                      style={{
+                        textDecoration: "line-through",
+                        color: "#a0aec0",
+                        marginRight: "4px",
+                      }}
+                    >
+                      {productDetailsData.productPrice} kr
+                    </span>
+                    <span style={{ color: "#68d391" }}>
+                      {productDetailsData.discountCartonPrice} kr
+                    </span>
+                    /carton ({productDetailsData.packageQuantity}{" "}
+                    {t("orders.unit")})
+                  </>
+                ) : (
+                  <>
+                    {productDetailsData.unitPrice} kr/{t("orders.unit")} |{" "}
+                    {productDetailsData.productPrice} kr/carton (
+                    {productDetailsData.packageQuantity} {t("orders.unit")})
+                  </>
+                )}
               </small>
             </div>
             <div className="product-details-total">

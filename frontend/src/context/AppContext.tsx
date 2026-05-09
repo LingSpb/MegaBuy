@@ -17,11 +17,24 @@ import type {
   ToastState,
 } from "../types";
 
+export interface DiscountProduct {
+  id: number;
+  product_id: string;
+  product_name: string;
+  original_price: number;
+  discount_price: number;
+  package_quantity: number;
+  unit_label: string;
+  note: string | null;
+  created_at: string;
+}
+
 interface AppContextValue {
   categories: Category[];
   products: ProductWithMetadata[];
   orders: Order[];
   shoppingList: string[];
+  discountProducts: DiscountProduct[];
   loading: LoadingState;
   toast: ToastState;
   showToast: (message: string, type?: "success" | "error") => void;
@@ -83,6 +96,15 @@ interface AppContextValue {
   removeFromShoppingList: (productId: string) => Promise<void>;
   clearShoppingList: () => Promise<void>;
   isInShoppingList: (productId: string) => boolean;
+  fetchDiscountProducts: () => Promise<void>;
+  addDiscountProduct: (
+    productId: string,
+    discountPrice: number,
+    note?: string,
+  ) => Promise<void>;
+  removeDiscountProduct: (productId: string) => Promise<void>;
+  clearDiscountProducts: () => Promise<void>;
+  getDiscountPrice: (productId: string) => number | null;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -96,6 +118,9 @@ export function AppProvider({ children }: AppProviderProps) {
   const [products, setProducts] = useState<ProductWithMetadata[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [shoppingList, setShoppingList] = useState<string[]>([]);
+  const [discountProducts, setDiscountProducts] = useState<DiscountProduct[]>(
+    [],
+  );
   const [loading, setLoading] = useState<LoadingState>({
     categories: false,
     products: false,
@@ -476,19 +501,104 @@ export function AppProvider({ children }: AppProviderProps) {
     [shoppingList],
   );
 
+  // Discount Products
+  const fetchDiscountProducts = useCallback(async () => {
+    try {
+      const res = await fetch("/api/discount-products");
+      if (!res.ok) throw new Error("Failed to load discount products");
+      const data = await res.json();
+      setDiscountProducts(data);
+    } catch (error) {
+      showToast(
+        "Error loading discount products: " + (error as Error).message,
+        "error",
+      );
+    }
+  }, [showToast]);
+
+  const addDiscountProduct = useCallback(
+    async (productId: string, discountPrice: number, note?: string) => {
+      try {
+        const res = await fetch("/api/discount-products", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            product_id: productId,
+            discount_price: discountPrice,
+            note,
+          }),
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error || "Failed to add discount");
+        }
+        await fetchDiscountProducts();
+        showToast("Discount added");
+      } catch (error) {
+        showToast((error as Error).message, "error");
+      }
+    },
+    [fetchDiscountProducts, showToast],
+  );
+
+  const removeDiscountProduct = useCallback(
+    async (productId: string) => {
+      try {
+        const res = await fetch(`/api/discount-products/${productId}`, {
+          method: "DELETE",
+        });
+        if (!res.ok) throw new Error("Failed to remove discount");
+        setDiscountProducts((prev) =>
+          prev.filter((d) => d.product_id !== productId),
+        );
+        showToast("Discount removed");
+      } catch (error) {
+        showToast((error as Error).message, "error");
+      }
+    },
+    [showToast],
+  );
+
+  const clearDiscountProducts = useCallback(async () => {
+    try {
+      const res = await fetch("/api/discount-products", { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to clear discounts");
+      setDiscountProducts([]);
+      showToast("Discounts cleared");
+    } catch (error) {
+      showToast((error as Error).message, "error");
+    }
+  }, [showToast]);
+
+  const getDiscountPrice = useCallback(
+    (productId: string): number | null => {
+      const discount = discountProducts.find((d) => d.product_id === productId);
+      return discount ? discount.discount_price : null;
+    },
+    [discountProducts],
+  );
+
   // Load initial data
   useEffect(() => {
     fetchCategories();
     fetchProducts();
     fetchOrders();
     fetchShoppingList();
-  }, [fetchCategories, fetchProducts, fetchOrders, fetchShoppingList]);
+    fetchDiscountProducts();
+  }, [
+    fetchCategories,
+    fetchProducts,
+    fetchOrders,
+    fetchShoppingList,
+    fetchDiscountProducts,
+  ]);
 
   const value: AppContextValue = {
     categories,
     products,
     orders,
     shoppingList,
+    discountProducts,
     loading,
     toast,
     showToast,
@@ -515,6 +625,11 @@ export function AppProvider({ children }: AppProviderProps) {
     removeFromShoppingList,
     clearShoppingList,
     isInShoppingList,
+    fetchDiscountProducts,
+    addDiscountProduct,
+    removeDiscountProduct,
+    clearDiscountProducts,
+    getDiscountPrice,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

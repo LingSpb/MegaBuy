@@ -112,7 +112,17 @@
       "cartonPrice": "Giá thùng",
       "orderedBy": "Người đặt"
     },
-    "noProducts": "Không có sản phẩm"
+    "noProducts": "Không có sản phẩm",
+    "discountProducts": "Sản phẩm giảm giá",
+    "searchProduct": "Tìm sản phẩm...",
+    "productCode": "Mã",
+    "productName": "Tên",
+    "originalPrice": "Giá gốc",
+    "discountPrice": "Giá giảm",
+    "note": "Ghi chú",
+    "noDiscountsYet": "Chưa có sản phẩm giảm giá. Thêm sản phẩm với giá giảm để bắt đầu.",
+    "clearAllDiscounts": "Xóa tất cả giảm giá",
+    "confirmClearDiscounts": "Bạn có chắc muốn xóa tất cả giảm giá?"
   },
   "products": {
     "title": "Sản phẩm",

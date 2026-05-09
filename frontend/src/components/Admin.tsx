@@ -31,8 +31,14 @@ interface QuantityEdit {
 }
 
 export default function Admin() {
-  const { orders, products, categories, bulkUpdateOrderItems, showToast } =
-    useApp();
+  const {
+    orders,
+    products,
+    categories,
+    bulkUpdateOrderItems,
+    showToast,
+    getDiscountPrice,
+  } = useApp();
   const { t } = useI18n();
   const [activeView, setActiveView] = useState<AdminView>("overview");
   const [editingCell, setEditingCell] = useState<{
@@ -501,7 +507,10 @@ export default function Admin() {
         if (!product) continue;
 
         const packageQty = product.package_quantity || 1;
-        const unitPrice = Number(product.price);
+        // Use discount price if available, otherwise use regular price
+        const discountPrice = getDiscountPrice(item.product_id);
+        const unitPrice =
+          discountPrice !== null ? discountPrice : Number(product.price);
 
         // Calculate item total based on unit
         const isCarton = item.unit?.toLowerCase() === "carton";
@@ -519,7 +528,7 @@ export default function Admin() {
       totals[order.id] = Math.round(total * 100) / 100;
     }
     return totals;
-  }, [childOrders, products, categories]);
+  }, [childOrders, products, categories, getDiscountPrice]);
 
   // Load delivery status when megaOrder changes
   useEffect(() => {

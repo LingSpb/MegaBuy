@@ -112,7 +112,17 @@
       "cartonPrice": "Carton Price",
       "orderedBy": "Ordered By"
     },
-    "noProducts": "No products"
+    "noProducts": "No products",
+    "discountProducts": "Discount Products",
+    "searchProduct": "Search product...",
+    "productCode": "Code",
+    "productName": "Name",
+    "originalPrice": "Original Price",
+    "discountPrice": "Discount Price",
+    "note": "Note",
+    "noDiscountsYet": "No discounts added yet. Add a product with a discount price to get started.",
+    "clearAllDiscounts": "Clear All Discounts",
+    "confirmClearDiscounts": "Are you sure you want to clear all discounts?"
   },
   "products": {
     "title": "Products",
