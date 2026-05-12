@@ -33,7 +33,7 @@ interface AppContextValue {
   categories: Category[];
   products: ProductWithMetadata[];
   orders: Order[];
-  shoppingList: string[];
+  favoriteList: string[];
   discountProducts: DiscountProduct[];
   loading: LoadingState;
   toast: ToastState;
@@ -87,15 +87,15 @@ interface AppContextValue {
   }>;
   getCategoryVat: (categoryId: string) => number;
   calculatePriceWithVat: (price: number, vatPercent: number) => number;
-  fetchShoppingList: () => Promise<void>;
-  addToShoppingList: (
+  fetchFavoriteList: () => Promise<void>;
+  addToFavoriteList: (
     productId: string,
     addedBy?: string,
     note?: string,
   ) => Promise<void>;
-  removeFromShoppingList: (productId: string) => Promise<void>;
-  clearShoppingList: () => Promise<void>;
-  isInShoppingList: (productId: string) => boolean;
+  removeFromFavoriteList: (productId: string) => Promise<void>;
+  clearFavoriteList: () => Promise<void>;
+  isInFavoriteList: (productId: string) => boolean;
   fetchDiscountProducts: () => Promise<void>;
   addDiscountProduct: (
     productId: string,
@@ -117,7 +117,7 @@ export function AppProvider({ children }: AppProviderProps) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<ProductWithMetadata[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [shoppingList, setShoppingList] = useState<string[]>([]);
+  const [favoriteList, setFavoriteList] = useState<string[]>([]);
   const [discountProducts, setDiscountProducts] = useState<DiscountProduct[]>(
     [],
   );
@@ -425,13 +425,13 @@ export function AppProvider({ children }: AppProviderProps) {
   );
 
   // Favorite list (stores product IDs)
-  const fetchShoppingList = useCallback(async () => {
+  const fetchFavoriteList = useCallback(async () => {
     try {
       const res = await fetch("/api/favorite-list");
       if (!res.ok) throw new Error("Failed to load favorite list");
       const data = await res.json();
       // Extract product IDs from response
-      setShoppingList(
+      setFavoriteList(
         data.map((item: { product_id: string }) => item.product_id),
       );
     } catch (error) {
@@ -442,7 +442,7 @@ export function AppProvider({ children }: AppProviderProps) {
     }
   }, [showToast]);
 
-  const addToShoppingList = useCallback(
+  const addToFavoriteList = useCallback(
     async (productId: string, addedBy?: string, note?: string) => {
       try {
         const res = await fetch("/api/favorite-list", {
@@ -458,7 +458,7 @@ export function AppProvider({ children }: AppProviderProps) {
           const err = await res.json();
           throw new Error(err.error || "Failed to add to favorite list");
         }
-        setShoppingList((prev) => [productId, ...prev]);
+        setFavoriteList((prev) => [productId, ...prev]);
         showToast("Added to favorite list");
       } catch (error) {
         showToast((error as Error).message, "error");
@@ -467,14 +467,14 @@ export function AppProvider({ children }: AppProviderProps) {
     [showToast],
   );
 
-  const removeFromShoppingList = useCallback(
+  const removeFromFavoriteList = useCallback(
     async (productId: string) => {
       try {
         const res = await fetch(`/api/favorite-list/${productId}`, {
           method: "DELETE",
         });
         if (!res.ok) throw new Error("Failed to remove from favorite list");
-        setShoppingList((prev) => prev.filter((id) => id !== productId));
+        setFavoriteList((prev) => prev.filter((id) => id !== productId));
         showToast("Removed from favorite list");
       } catch (error) {
         showToast((error as Error).message, "error");
@@ -483,22 +483,22 @@ export function AppProvider({ children }: AppProviderProps) {
     [showToast],
   );
 
-  const clearShoppingList = useCallback(async () => {
+  const clearFavoriteList = useCallback(async () => {
     try {
       const res = await fetch("/api/favorite-list", { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to clear favorite list");
-      setShoppingList([]);
+      setFavoriteList([]);
       showToast("Favorite list cleared");
     } catch (error) {
       showToast((error as Error).message, "error");
     }
   }, [showToast]);
 
-  const isInShoppingList = useCallback(
+  const isInFavoriteList = useCallback(
     (productId: string): boolean => {
-      return shoppingList.includes(productId);
+      return favoriteList.includes(productId);
     },
-    [shoppingList],
+    [favoriteList],
   );
 
   // Discount Products
@@ -583,13 +583,13 @@ export function AppProvider({ children }: AppProviderProps) {
     fetchCategories();
     fetchProducts();
     fetchOrders();
-    fetchShoppingList();
+    fetchFavoriteList();
     fetchDiscountProducts();
   }, [
     fetchCategories,
     fetchProducts,
     fetchOrders,
-    fetchShoppingList,
+    fetchFavoriteList,
     fetchDiscountProducts,
   ]);
 
@@ -597,7 +597,7 @@ export function AppProvider({ children }: AppProviderProps) {
     categories,
     products,
     orders,
-    shoppingList,
+    favoriteList,
     discountProducts,
     loading,
     toast,
@@ -620,11 +620,11 @@ export function AppProvider({ children }: AppProviderProps) {
     bulkUpdateOrderItems,
     getCategoryVat,
     calculatePriceWithVat,
-    fetchShoppingList,
-    addToShoppingList,
-    removeFromShoppingList,
-    clearShoppingList,
-    isInShoppingList,
+    fetchFavoriteList,
+    addToFavoriteList,
+    removeFromFavoriteList,
+    clearFavoriteList,
+    isInFavoriteList,
     fetchDiscountProducts,
     addDiscountProduct,
     removeDiscountProduct,

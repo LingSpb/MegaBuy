@@ -30,7 +30,7 @@ export default function Orders() {
   const {
     products,
     orders,
-    shoppingList,
+    favoriteList,
     discountProducts,
     saveOrder,
     deleteOrder,
@@ -1318,12 +1318,12 @@ export default function Orders() {
                         );
                         const inList = products.filter(
                           (p) =>
-                            shoppingList.includes(p.id) &&
+                            favoriteList.includes(p.id) &&
                             !discountProductIds.has(p.id),
                         );
                         const notInList = products.filter(
                           (p) =>
-                            !shoppingList.includes(p.id) &&
+                            !favoriteList.includes(p.id) &&
                             !discountProductIds.has(p.id),
                         );
                         return (
@@ -1347,7 +1347,7 @@ export default function Orders() {
                               </optgroup>
                             )}
                             {inList.length > 0 && (
-                              <optgroup label={t("orders.shoppingList")}>
+                              <optgroup label={t("orders.favoriteList")}>
                                 {inList.map((p) => (
                                   <option
                                     key={p.id}

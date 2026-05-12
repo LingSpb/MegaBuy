@@ -36,9 +36,9 @@ export default function Products({
     getCategoryVat,
     calculatePriceWithVat,
     fetchProducts,
-    addToShoppingList,
-    removeFromShoppingList,
-    isInShoppingList,
+    addToFavoriteList,
+    removeFromFavoriteList,
+    isInFavoriteList,
   } = useApp();
   const { t } = useI18n();
 
@@ -403,17 +403,17 @@ export default function Products({
                   </div>
                 </div>
                 <div className="card-actions">
-                  {isInShoppingList(product.id) ? (
+                  {isInFavoriteList(product.id) ? (
                     <button
                       className="btn btn-secondary"
-                      onClick={() => removeFromShoppingList(product.id)}
+                      onClick={() => removeFromFavoriteList(product.id)}
                     >
                       {t("products.removeFromList")}
                     </button>
                   ) : (
                     <button
                       className="btn btn-favorite"
-                      onClick={() => addToShoppingList(product.id)}
+                      onClick={() => addToFavoriteList(product.id)}
                     >
                       {t("products.addToList")}
                     </button>

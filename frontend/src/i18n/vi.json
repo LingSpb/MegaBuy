@@ -5,7 +5,7 @@
   "nav": {
     "orders": "Đơn hàng",
     "products": "Sản phẩm",
-    "shoppingList": "Danh sách yêu thích",
+    "favoriteList": "Danh sách yêu thích",
     "categories": "Danh mục",
     "admin": "Quản trị"
   },
@@ -79,7 +79,7 @@
       "delivered": "Đã giao",
       "closed": "Đã đóng"
     },
-    "shoppingList": "Danh sách yêu thích",
+    "favoriteList": "Danh sách yêu thích",
     "allProducts": "Tất cả sản phẩm",
     "description": "Quản lý đơn hàng cá nhân và đơn MegaBuy. Tạo đơn, xem chi tiết và theo dõi trạng thái.",
     "needAtLeast2": "Cần ít nhất 2 đơn nháp để tạo đơn MegaBuy",
@@ -185,7 +185,7 @@
       "description": "Nhập mô tả danh mục"
     }
   },
-  "shoppingList": {
+  "favoriteList": {
     "title": "Danh sách yêu thích",
     "subtitle": "Sản phẩm muốn mua trong đợt MegaBuy",
     "empty": "Danh sách trống. Thêm sản phẩm từ tab Sản phẩm.",

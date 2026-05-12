@@ -9,7 +9,7 @@ import FavoriteList from "./components/FavoriteList";
 import Admin from "./components/Admin";
 import "./App.css";
 
-type TabName = "orders" | "categories" | "products" | "shopping-list" | "admin";
+type TabName = "orders" | "categories" | "products" | "favorite-list" | "admin";
 
 function AppContent() {
   const [activeTab, setActiveTab] = useState<TabName>("orders");
@@ -40,10 +40,10 @@ function AppContent() {
             {t("nav.orders")}
           </button>
           <button
-            className={`nav-btn ${activeTab === "shopping-list" ? "active" : ""}`}
-            onClick={() => handleTabChange("shopping-list")}
+            className={`nav-btn ${activeTab === "favorite-list" ? "active" : ""}`}
+            onClick={() => handleTabChange("favorite-list")}
           >
-            {t("nav.shoppingList")}
+            {t("nav.favoriteList")}
           </button>
           <button
             className={`nav-btn ${activeTab === "products" ? "active" : ""}`}
@@ -90,7 +90,7 @@ function AppContent() {
           onCategoryFilterChange={setCategoryFilter}
         />
       )}
-      {activeTab === "shopping-list" && <FavoriteList />}
+      {activeTab === "favorite-list" && <FavoriteList />}
       {activeTab === "admin" && <Admin />}
 
       <Toast />

@@ -10,7 +10,7 @@ const supabase = require("../lib/supabase");
 router.get("/", async (req, res) => {
   try {
     const { data, error } = await supabase
-      .from("shopping_list")
+      .from("favorite_list")
       .select("*, products(*)")
       .order("created_at", { ascending: false });
 
@@ -30,7 +30,7 @@ router.get("/", async (req, res) => {
   } catch (error) {
     res
       .status(500)
-      .json({ error: "Failed to load shopping list: " + error.message });
+      .json({ error: "Failed to load favorite list: " + error.message });
   }
 });
 
@@ -56,7 +56,7 @@ router.post("/", async (req, res) => {
 
     // Check if already in list
     const { data: existing } = await supabase
-      .from("shopping_list")
+      .from("favorite_list")
       .select("id")
       .eq("product_id", product_id)
       .single();
@@ -64,11 +64,11 @@ router.post("/", async (req, res) => {
     if (existing) {
       return res
         .status(400)
-        .json({ error: "Product already in shopping list" });
+        .json({ error: "Product already in favorite list" });
     }
 
     const { data, error } = await supabase
-      .from("shopping_list")
+      .from("favorite_list")
       .insert({
         product_id,
         added_by: added_by || null,
@@ -90,7 +90,7 @@ router.post("/", async (req, res) => {
   } catch (error) {
     res
       .status(500)
-      .json({ error: "Failed to add to shopping list: " + error.message });
+      .json({ error: "Failed to add to favorite list: " + error.message });
   }
 });
 
@@ -98,16 +98,16 @@ router.post("/", async (req, res) => {
 router.delete("/:productId", async (req, res) => {
   try {
     const { error } = await supabase
-      .from("shopping_list")
+      .from("favorite_list")
       .delete()
       .eq("product_id", req.params.productId);
 
     if (error) throw error;
-    res.json({ message: "Removed from shopping list" });
+    res.json({ message: "Removed from favorite list" });
   } catch (error) {
     res
       .status(500)
-      .json({ error: "Failed to remove from shopping list: " + error.message });
+      .json({ error: "Failed to remove from favorite list: " + error.message });
   }
 });
 
@@ -115,16 +115,16 @@ router.delete("/:productId", async (req, res) => {
 router.delete("/", async (req, res) => {
   try {
     const { error } = await supabase
-      .from("shopping_list")
+      .from("favorite_list")
       .delete()
       .neq("id", 0); // Delete all rows
 
     if (error) throw error;
-    res.json({ message: "Shopping list cleared" });
+    res.json({ message: "Favorite list cleared" });
   } catch (error) {
     res
       .status(500)
-      .json({ error: "Failed to clear shopping list: " + error.message });
+      .json({ error: "Failed to clear favorite list: " + error.message });
   }
 });
 

@@ -5,7 +5,7 @@
   "nav": {
     "orders": "Orders",
     "products": "Products",
-    "shoppingList": "Favorite List",
+    "favoriteList": "Favorite List",
     "categories": "Categories",
     "admin": "Admin"
   },
@@ -79,7 +79,7 @@
       "delivered": "Delivered",
       "closed": "Closed"
     },
-    "shoppingList": "Favorite List",
+    "favoriteList": "Favorite List",
     "allProducts": "All Products",
     "description": "Manage personal orders and MegaBuy orders. Create orders, view details and track status.",
     "needAtLeast2": "Need at least 2 Draft normal orders to create MegaBuy order",
@@ -185,7 +185,7 @@
       "description": "Enter category description"
     }
   },
-  "shoppingList": {
+  "favoriteList": {
     "title": "Favorite List",
     "subtitle": "Products people want to buy in the current mega buy order",
     "empty": "Favorite list is empty. Add products from the Products tab.",

@@ -6,26 +6,26 @@ import type { ProductWithMetadata } from "../types";
 
 export default function FavoriteList() {
   const {
-    shoppingList,
+    favoriteList,
     products,
     categories,
-    removeFromShoppingList,
-    clearShoppingList,
+    removeFromFavoriteList,
+    clearFavoriteList,
   } = useApp();
   const { t } = useI18n();
   const [searchTerm, setSearchTerm] = useState("");
 
-  // Get products that are in the shopping list
-  const shoppingListProducts = useMemo(() => {
-    return shoppingList
+  // Get products that are in the favorite list
+  const favoriteListProducts = useMemo(() => {
+    return favoriteList
       .map((productId) => products.find((p) => p.id === productId))
       .filter((p): p is ProductWithMetadata => p !== undefined);
-  }, [shoppingList, products]);
+  }, [favoriteList, products]);
 
   const filteredProducts = useMemo(() => {
-    if (!searchTerm) return shoppingListProducts;
+    if (!searchTerm) return favoriteListProducts;
     const term = removeVietnameseTones(searchTerm.toLowerCase());
-    return shoppingListProducts.filter((product) => {
+    return favoriteListProducts.filter((product) => {
       const category = categories.find((c) => c.id === product.category_id);
       const categoryName = category?.name || "";
       return (
@@ -34,22 +34,22 @@ export default function FavoriteList() {
         removeVietnameseTones(categoryName.toLowerCase()).includes(term)
       );
     });
-  }, [shoppingListProducts, categories, searchTerm]);
+  }, [favoriteListProducts, categories, searchTerm]);
 
   const handleClearAll = async () => {
     if (
-      shoppingList.length > 0 &&
-      window.confirm(t("shoppingList.clearConfirm"))
+      favoriteList.length > 0 &&
+      window.confirm(t("favoriteList.clearConfirm"))
     ) {
-      await clearShoppingList();
+      await clearFavoriteList();
     }
   };
 
   return (
     <main className="content">
       <div className="page-header">
-        <h2>{t("shoppingList.title")}</h2>
-        <p className="page-subtitle">{t("shoppingList.subtitle")}</p>
+        <h2>{t("favoriteList.title")}</h2>
+        <p className="page-subtitle">{t("favoriteList.subtitle")}</p>
       </div>
 
       <div className="toolbar">
@@ -61,7 +61,7 @@ export default function FavoriteList() {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        {shoppingList.length > 0 && (
+        {favoriteList.length > 0 && (
           <button className="btn btn-danger" onClick={handleClearAll}>
             {t("common.clearAll")}
           </button>
@@ -70,7 +70,7 @@ export default function FavoriteList() {
 
       {filteredProducts.length === 0 ? (
         <div className="empty-state">
-          <p>{searchTerm ? t("common.noResults") : t("shoppingList.empty")}</p>
+          <p>{searchTerm ? t("common.noResults") : t("favoriteList.empty")}</p>
         </div>
       ) : (
         <div className="cards-grid">
@@ -97,7 +97,7 @@ export default function FavoriteList() {
                 <div className="card-actions">
                   <button
                     className="btn btn-danger btn-sm"
-                    onClick={() => removeFromShoppingList(product.id)}
+                    onClick={() => removeFromFavoriteList(product.id)}
                   >
                     {t("common.remove")}
                   </button>
