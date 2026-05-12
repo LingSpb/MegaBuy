@@ -45,41 +45,73 @@ CREATE TABLE IF NOT EXISTS product_metadata (
 
 -- 3) Migrate existing data (if products table exists with data)
 -- Uses COALESCE to handle nullable columns gracefully
-INSERT INTO products_new (id, name, brand, price, package_quantity)
-SELECT 
-  COALESCE(code, id) as id,      -- Use code if set, otherwise fall back to old id
-  name,
-  brand,                          -- May be NULL
-  COALESCE(unit_price, price / NULLIF(package_quantity, 0), price) as price,
-  COALESCE(package_quantity, 1)
-FROM products
-ON CONFLICT (id) DO NOTHING;
-
-INSERT INTO product_metadata (product_id, category_id, description, selling_type, unit_label, unit_price, package_unit, created_at)
-SELECT 
-  COALESCE(code, id) as product_id,
-  category_id,
-  COALESCE(description, ''),
-  COALESCE(selling_type, 'package'),
-  COALESCE(unit_label, 'unit'),
-  unit_price,
-  COALESCE(package_unit, 'units'),
-  COALESCE(created_at, now())
-FROM products
-ON CONFLICT (product_id) DO NOTHING;
-
--- 4) Update order_items to use new product ids (code instead of old id)
--- Only update if the product had a code that differs from id
-UPDATE order_items oi
-SET product_id = p.code
-FROM products p
-WHERE oi.product_id = p.id
-  AND p.code IS NOT NULL
-  AND p.code != p.id;
-
--- 5) Drop old table and rename new one
-DROP TABLE IF EXISTS products CASCADE;
-ALTER TABLE products_new RENAME TO products;
+-- Note: Only runs if old products table has different structure
+DO $$
+DECLARE
+  has_unit_price BOOLEAN;
+  has_code BOOLEAN;
+BEGIN
+  -- Check if this is the old schema (has category_id in products table)
+  IF EXISTS (SELECT 1 FROM information_schema.columns 
+             WHERE table_name = 'products' AND column_name = 'category_id') THEN
+    
+    -- Check for optional columns
+    SELECT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name = 'products' AND column_name = 'unit_price') INTO has_unit_price;
+    SELECT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name = 'products' AND column_name = 'code') INTO has_code;
+    
+    -- Migrate to products_new
+    IF has_code AND has_unit_price THEN
+      INSERT INTO products_new (id, name, brand, price, package_quantity)
+      SELECT COALESCE(code, id), name, brand,
+             COALESCE(unit_price, price / NULLIF(package_quantity, 0), price),
+             COALESCE(package_quantity, 1)
+      FROM products ON CONFLICT (id) DO NOTHING;
+      
+      INSERT INTO product_metadata (product_id, category_id, description, selling_type, unit_label, unit_price, package_unit, created_at)
+      SELECT COALESCE(code, id), category_id, COALESCE(description, ''),
+             COALESCE(selling_type, 'package'), COALESCE(unit_label, 'unit'),
+             unit_price, COALESCE(package_unit, 'units'), COALESCE(created_at, now())
+      FROM products ON CONFLICT (product_id) DO NOTHING;
+    ELSIF has_code THEN
+      INSERT INTO products_new (id, name, brand, price, package_quantity)
+      SELECT COALESCE(code, id), name, brand,
+             price / NULLIF(package_quantity, 0),
+             COALESCE(package_quantity, 1)
+      FROM products ON CONFLICT (id) DO NOTHING;
+      
+      INSERT INTO product_metadata (product_id, category_id, description, selling_type, unit_label, package_unit, created_at)
+      SELECT COALESCE(code, id), category_id, COALESCE(description, ''),
+             COALESCE(selling_type, 'package'), COALESCE(unit_label, 'unit'),
+             COALESCE(package_unit, 'units'), COALESCE(created_at, now())
+      FROM products ON CONFLICT (product_id) DO NOTHING;
+    ELSE
+      INSERT INTO products_new (id, name, brand, price, package_quantity)
+      SELECT id, name, brand, price, COALESCE(package_quantity, 1)
+      FROM products ON CONFLICT (id) DO NOTHING;
+      
+      INSERT INTO product_metadata (product_id, category_id, description, selling_type, unit_label, package_unit, created_at)
+      SELECT id, category_id, COALESCE(description, ''),
+             COALESCE(selling_type, 'package'), COALESCE(unit_label, 'unit'),
+             COALESCE(package_unit, 'units'), COALESCE(created_at, now())
+      FROM products ON CONFLICT (product_id) DO NOTHING;
+    END IF;
+    
+    -- Update order_items if code column exists
+    IF has_code THEN
+      UPDATE order_items oi SET product_id = p.code
+      FROM products p WHERE oi.product_id = p.id AND p.code IS NOT NULL AND p.code != p.id;
+    END IF;
+    
+    -- Drop old table and rename
+    DROP TABLE products CASCADE;
+    ALTER TABLE products_new RENAME TO products;
+  ELSE
+    -- New schema already in place, just drop the temp table if empty
+    DROP TABLE IF EXISTS products_new;
+  END IF;
+END $$;
 
 -- 6) Create indexes
 CREATE INDEX IF NOT EXISTS idx_products_brand ON products(brand);

@@ -14,4 +14,13 @@ CREATE INDEX IF NOT EXISTS idx_discount_products_product_id ON discount_products
 
 -- Allow all access (simple app without authentication)
 ALTER TABLE discount_products ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow all access to discount_products" ON discount_products FOR ALL USING (true) WITH CHECK (true);
+
+-- Create policy only if it doesn't exist
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE tablename = 'discount_products' AND policyname = 'Allow all access to discount_products'
+  ) THEN
+    CREATE POLICY "Allow all access to discount_products" ON discount_products FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;

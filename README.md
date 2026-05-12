@@ -82,26 +82,45 @@ cd frontend && npm install
 
 ### 2. Configure environment
 
-Create a `.env` file in the root directory:
+Copy `.env.example` to `.env` and fill in your Supabase credentials:
 
 ```env
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+DATABASE_URL=postgresql://postgres.your-project:[password]@aws-0-[region].pooler.supabase.com:6543/postgres
 ```
 
-### 3. Start backend server
+**Finding your credentials:**
+
+- **SUPABASE_URL**: Project Settings → API → Project URL
+- **SUPABASE_SERVICE_ROLE_KEY**: Project Settings → API → `service_role` key (keep secret!)
+- **DATABASE_URL**: Project Settings → Database → Connection string → URI (use **Session pooler**, port 6543)
+
+### 3. Run database migrations
+
+```powershell
+npm run migrate
+```
+
+To see migration status:
+
+```powershell
+npm run migrate:list
+```
+
+### 4. Start backend server
 
 ```powershell
 npm run server
 ```
 
-### 4. Start frontend dev server
+### 5. Start frontend dev server
 
 ```powershell
 cd frontend && npm run dev
 ```
 
-### 5. Open the app
+### 6. Open the app
 
 - Frontend: http://localhost:5173 (proxies API to backend)
 - Backend API: http://localhost:3000

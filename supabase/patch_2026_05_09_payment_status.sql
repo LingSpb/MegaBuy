@@ -16,8 +16,13 @@ CREATE INDEX IF NOT EXISTS idx_payment_status_child_order ON payment_status(chil
 -- Enable RLS
 ALTER TABLE payment_status ENABLE ROW LEVEL SECURITY;
 
--- Allow all operations for now (adjust based on your auth requirements)
-CREATE POLICY "Allow all operations on payment_status" ON payment_status
-    FOR ALL
-    USING (true)
-    WITH CHECK (true);
+-- Create policy only if it doesn't exist
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE tablename = 'payment_status' AND policyname = 'Allow all operations on payment_status'
+  ) THEN
+    CREATE POLICY "Allow all operations on payment_status" ON payment_status
+      FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;

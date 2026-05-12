@@ -7,7 +7,9 @@
     "start": "node backend/server.js",
     "server": "node backend/server.js",
     "client": "cd frontend && npm run dev",
-    "dev": "node backend/server.js"
+    "dev": "node backend/server.js",
+    "migrate": "node scripts/migrate.js",
+    "migrate:list": "node scripts/migrate.js --list"
   },
   "keywords": [
     "products",
@@ -23,6 +25,7 @@
     "dotenv": "^17.3.1",
     "express": "^4.18.2",
     "multer": "^2.1.1",
+    "pg": "^8.20.0",
     "xlsx": "^0.18.5"
   }
 }
