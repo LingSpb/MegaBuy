@@ -45,7 +45,8 @@
     "last": "Last",
     "itemsPerPage": "Items per page",
     "and": "and",
-    "more": "more errors"
+    "more": "more errors",
+    "backToTop": "Back to top"
   },
   "orders": {
     "title": "Orders",

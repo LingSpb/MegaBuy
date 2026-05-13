@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { AppProvider } from "./context/AppContext";
 import { I18nProvider, useI18n } from "./i18n";
 import Toast from "./components/Toast";
@@ -14,7 +14,21 @@ type TabName = "orders" | "categories" | "products" | "favorite-list" | "admin";
 function AppContent() {
   const [activeTab, setActiveTab] = useState<TabName>("orders");
   const [categoryFilter, setCategoryFilter] = useState("");
+  const [showBackToTop, setShowBackToTop] = useState(false);
   const { t, language, setLanguage } = useI18n();
+
+  // Show/hide back to top button based on scroll position
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowBackToTop(window.scrollY > 300);
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   const handleNavigateToProducts = useCallback((categoryId: string) => {
     setCategoryFilter(categoryId);
@@ -94,6 +108,13 @@ function AppContent() {
       {activeTab === "admin" && <Admin />}
 
       <Toast />
+
+      {/* Back to Top Button */}
+      {showBackToTop && (
+        <button className="back-to-top" onClick={scrollToTop}>
+          ↑ {t("common.backToTop")}
+        </button>
+      )}
     </div>
   );
 }

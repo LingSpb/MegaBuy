@@ -45,7 +45,8 @@
     "last": "Cuối",
     "itemsPerPage": "Số lượng mỗi trang",
     "and": "và",
-    "more": "lỗi khác"
+    "more": "lỗi khác",
+    "backToTop": "Về đầu trang"
   },
   "orders": {
     "title": "Đơn hàng",
