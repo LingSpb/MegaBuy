@@ -7,6 +7,7 @@ import {
   getProductUnits,
   aggregateOrderItems,
   removeVietnameseTones,
+  getProductThumbnailUrl,
 } from "../utils/helpers";
 import type { ProductWithMetadata, ProductFormData } from "../types";
 
@@ -392,6 +393,25 @@ export default function Products({
             return (
               <div key={product.id} className="card">
                 <div className="product-info">
+                  <div className="product-thumbnail-wrapper">
+                    <img
+                      src={getProductThumbnailUrl(product.id)}
+                      alt={product.name}
+                      className="product-thumbnail"
+                      loading="lazy"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = "none";
+                      }}
+                    />
+                    <img
+                      src={getProductThumbnailUrl(product.id)}
+                      alt={product.name}
+                      className="product-thumbnail-preview"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = "none";
+                      }}
+                    />
+                  </div>
                   <div className="card-content">
                     <h3>
                       {product.id} - {product.name}

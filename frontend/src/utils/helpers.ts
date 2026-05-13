@@ -5,6 +5,16 @@ import type {
   OrderItemFormData,
 } from "../types";
 
+// Thumbnail configuration (from VITE_THUMBNAIL_BASE_URL env variable)
+const THUMBNAIL_BASE_URL =
+  import.meta.env.VITE_THUMBNAIL_BASE_URL ||
+  "https://d73t4oujvpbw9prl.public.blob.vercel-storage.com";
+
+// Get thumbnail URL for a product
+export function getProductThumbnailUrl(productId: string): string {
+  return `${THUMBNAIL_BASE_URL}/${productId}.jpg`;
+}
+
 // Remove Vietnamese diacritics for search
 export function removeVietnameseTones(str: string): string {
   return str

@@ -442,6 +442,46 @@ body {
   flex-wrap: wrap;
 }
 
+.product-thumbnail {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 8px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.product-thumbnail-wrapper {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.product-thumbnail-preview {
+  display: none;
+  position: absolute;
+  top: 50%;
+  left: 100%;
+  transform: translateY(-50%);
+  margin-left: 12px;
+  width: 300px;
+  height: auto;
+  max-height: 300px;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  background: #2d3748;
+  padding: 8px;
+  z-index: 100;
+}
+
+.product-thumbnail-wrapper:hover .product-thumbnail-preview {
+  display: block;
+}
+
+.product-thumbnail-wrapper:hover .product-thumbnail {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
 .product-info > div:last-child {
   display: flex;
   flex-direction: column;
