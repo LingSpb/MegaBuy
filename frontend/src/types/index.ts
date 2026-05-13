@@ -28,6 +28,17 @@ export interface ProductWithMetadata extends Product {
   created_at?: string;
 }
 
+// Order item contributor (for MegaBuy order items)
+export interface OrderItemContributor {
+  order_id: string;
+  person_name: string;
+  quantity: number;
+  unit: string;
+  small_units: number;
+  ordered_at: string;
+  protected: boolean; // True if they ordered full cartons (not eligible for cuts)
+}
+
 // Order item types
 export interface OrderItem {
   product_id: string;
@@ -36,6 +47,14 @@ export interface OrderItem {
   unit: string;
   unit_price?: number | null;
   line_total?: number | null;
+  created_at?: string;
+  // MegaBuy specific fields
+  contributors?: OrderItemContributor[];
+  has_remainder?: boolean;
+  remainder_quantity?: number;
+  remainder_unit?: string;
+  is_remainder?: boolean;
+  carton_size?: number;
 }
 
 // Order types
@@ -114,8 +133,23 @@ export interface ProductDetailsData {
     personName: string;
     orderId: string;
     itemsSummary: string;
+    createdAt: string;
   }>;
   productId: string;
   discountUnitPrice?: number | null;
   discountCartonPrice?: number | null;
+  // MegaBuy contributor info (for priority display)
+  contributors?: Array<{
+    personName: string;
+    orderId: string;
+    quantity: number;
+    unit: string;
+    smallUnits: number;
+    orderedAt: string;
+    protected: boolean;
+  }>;
+  hasRemainder?: boolean;
+  remainderQuantity?: number;
+  remainderUnit?: string;
+  isRemainder?: boolean;
 }

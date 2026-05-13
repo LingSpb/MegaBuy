@@ -535,6 +535,11 @@ export default function Orders() {
       return;
     }
 
+    // Find the mega order item for this product
+    const megaItem = megaOrder.items.find(
+      (item) => item.product_id === productId,
+    );
+
     const childOrderIds =
       Array.isArray(megaOrder.child_order_ids) &&
       megaOrder.child_order_ids.length > 0
@@ -560,35 +565,58 @@ export default function Orders() {
       personName: string;
       orderId: string;
       itemsSummary: string;
+      createdAt: string;
     }> = [];
     const totalByUnit = new Map<string, number>();
+
+    // Collect items with their created_at for sorting
+    const itemsWithInfo: Array<{
+      personName: string;
+      orderId: string;
+      item: OrderItem;
+      createdAt: string;
+    }> = [];
 
     childOrders.forEach((order) => {
       const orderItems = order.items.filter(
         (item) => item.product_id === productId,
       );
-      if (orderItems.length > 0) {
-        const itemsSummary = orderItems
-          .map((item) => {
-            const qty = Number(item.quantity) || 0;
-            let unit = (item.unit || "unit").toLowerCase();
-            // For package_quantity=1, convert "carton" to packageUnit
-            if (packageQuantity === 1 && unit === "carton") {
-              unit = packageUnit;
-            }
-            totalByUnit.set(
-              unit,
-              Number(((totalByUnit.get(unit) || 0) + qty).toFixed(2)),
-            );
-            return `${qty} ${unit}`;
-          })
-          .join(", ");
-        breakdown.push({
+      orderItems.forEach((item) => {
+        itemsWithInfo.push({
           personName: order.person_name,
           orderId: order.id,
-          itemsSummary,
+          item,
+          // Use item's created_at if available, fall back to order's created_at
+          createdAt: item.created_at || order.created_at || "",
         });
+      });
+    });
+
+    // Sort by item's created_at (oldest first)
+    itemsWithInfo.sort((a, b) => {
+      const dateA = new Date(a.createdAt || 0).getTime();
+      const dateB = new Date(b.createdAt || 0).getTime();
+      return dateA - dateB;
+    });
+
+    // Build breakdown from sorted items
+    itemsWithInfo.forEach(({ personName, orderId, item, createdAt }) => {
+      const qty = Number(item.quantity) || 0;
+      let unit = (item.unit || "unit").toLowerCase();
+      // For package_quantity=1, convert "carton" to packageUnit
+      if (packageQuantity === 1 && unit === "carton") {
+        unit = packageUnit;
       }
+      totalByUnit.set(
+        unit,
+        Number(((totalByUnit.get(unit) || 0) + qty).toFixed(2)),
+      );
+      breakdown.push({
+        personName,
+        orderId,
+        itemsSummary: `${qty} ${unit}`,
+        createdAt,
+      });
     });
 
     const totalSum = Array.from(totalByUnit.entries())
@@ -606,6 +634,17 @@ export default function Orders() {
       ? Number((discountPrice * packageQuantity).toFixed(2))
       : null;
 
+    // Extract contributors from mega order item (sorted by priority from backend)
+    const contributors = megaItem?.contributors?.map((c) => ({
+      personName: c.person_name,
+      orderId: c.order_id,
+      quantity: c.quantity,
+      unit: c.unit,
+      smallUnits: c.small_units,
+      orderedAt: c.ordered_at,
+      protected: c.protected,
+    }));
+
     setProductDetailsData({
       productInfoText,
       totalSum,
@@ -616,6 +655,11 @@ export default function Orders() {
       packageQuantity,
       discountUnitPrice,
       discountCartonPrice,
+      contributors,
+      hasRemainder: megaItem?.has_remainder,
+      remainderQuantity: megaItem?.remainder_quantity,
+      remainderUnit: megaItem?.remainder_unit,
+      isRemainder: megaItem?.is_remainder,
     });
     setProductDetailsModalOpen(true);
   };
@@ -1544,39 +1588,160 @@ export default function Orders() {
             </div>
             <div className="product-details-breakdown">
               <strong>{t("orders.productDetails.orderedBy")}:</strong>
-              <div className="breakdown-list">
-                {productDetailsData.breakdown.length > 0 ? (
-                  productDetailsData.breakdown.map((b, i) => (
-                    <span
-                      key={i}
-                      className="product-breakdown-item child-order-link"
-                      onClick={() => {
-                        closeProductDetailsModal();
-                        const element = document.getElementById(
-                          `order-${b.orderId}`,
-                        );
-                        if (element) {
-                          element.scrollIntoView({
-                            behavior: "smooth",
-                            block: "center",
-                          });
-                          element.classList.add("highlight-order");
-                          setTimeout(
-                            () => element.classList.remove("highlight-order"),
-                            2000,
+              {productDetailsData.contributors &&
+              productDetailsData.contributors.length > 0 ? (
+                <div className="breakdown-list">
+                  {productDetailsData.contributors.map((c, i) => {
+                    const isLast =
+                      i === productDetailsData.contributors!.length - 1;
+                    const isCutCandidate =
+                      productDetailsData.isRemainder && !c.protected;
+                    return (
+                      <span
+                        key={i}
+                        className={`product-breakdown-item child-order-link ${isCutCandidate ? "cut-candidate" : ""}`}
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          padding: "4px 8px",
+                          marginBottom: "4px",
+                          borderRadius: "4px",
+                          backgroundColor: c.protected
+                            ? "rgba(72, 187, 120, 0.2)"
+                            : isCutCandidate
+                              ? "rgba(245, 101, 101, 0.2)"
+                              : "transparent",
+                        }}
+                        onClick={() => {
+                          closeProductDetailsModal();
+                          const element = document.getElementById(
+                            `order-${c.orderId}`,
                           );
-                        }
-                      }}
-                    >
-                      <strong>{b.personName}</strong> ({b.itemsSummary})
+                          if (element) {
+                            element.scrollIntoView({
+                              behavior: "smooth",
+                              block: "center",
+                            });
+                            element.classList.add("highlight-order");
+                            setTimeout(
+                              () => element.classList.remove("highlight-order"),
+                              2000,
+                            );
+                          }
+                        }}
+                      >
+                        <span>
+                          <strong>{c.personName}</strong> ({c.quantity} {c.unit}
+                          )
+                        </span>
+                        <span style={{ fontSize: "0.8em", color: "#a0aec0" }}>
+                          {c.protected && (
+                            <span
+                              style={{
+                                backgroundColor: "#48bb78",
+                                color: "#fff",
+                                padding: "2px 6px",
+                                borderRadius: "4px",
+                                marginRight: "4px",
+                              }}
+                            >
+                              {t("orders.productDetails.protected")}
+                            </span>
+                          )}
+                          {isCutCandidate && isLast && (
+                            <span
+                              style={{
+                                backgroundColor: "#f56565",
+                                color: "#fff",
+                                padding: "2px 6px",
+                                borderRadius: "4px",
+                                marginRight: "4px",
+                              }}
+                            >
+                              {t("orders.productDetails.cutCandidate")}
+                            </span>
+                          )}
+                          {new Date(c.orderedAt).toLocaleString(undefined, {
+                            month: "short",
+                            day: "numeric",
+                            hour: "numeric",
+                            minute: "2-digit",
+                          })}
+                        </span>
+                      </span>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="breakdown-list">
+                  {productDetailsData.breakdown.length > 0 ? (
+                    productDetailsData.breakdown.map((b, i) => (
+                      <span
+                        key={i}
+                        className="product-breakdown-item child-order-link"
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          padding: "4px 8px",
+                          marginBottom: "4px",
+                        }}
+                        onClick={() => {
+                          closeProductDetailsModal();
+                          const element = document.getElementById(
+                            `order-${b.orderId}`,
+                          );
+                          if (element) {
+                            element.scrollIntoView({
+                              behavior: "smooth",
+                              block: "center",
+                            });
+                            element.classList.add("highlight-order");
+                            setTimeout(
+                              () => element.classList.remove("highlight-order"),
+                              2000,
+                            );
+                          }
+                        }}
+                      >
+                        <span>
+                          <strong>{b.personName}</strong> ({b.itemsSummary})
+                        </span>
+                        <span style={{ fontSize: "0.8em", color: "#a0aec0" }}>
+                          {b.createdAt &&
+                            new Date(b.createdAt).toLocaleString(undefined, {
+                              month: "short",
+                              day: "numeric",
+                              hour: "numeric",
+                              minute: "2-digit",
+                            })}
+                        </span>
+                      </span>
+                    ))
+                  ) : (
+                    <span className="product-breakdown-empty">
+                      {t("common.noResults")}
                     </span>
-                  ))
-                ) : (
-                  <span className="product-breakdown-empty">
-                    {t("common.noResults")}
-                  </span>
-                )}
-              </div>
+                  )}
+                </div>
+              )}
+              {productDetailsData.hasRemainder && (
+                <div
+                  style={{
+                    marginTop: "8px",
+                    padding: "8px",
+                    backgroundColor: "rgba(237, 137, 54, 0.2)",
+                    borderRadius: "4px",
+                  }}
+                >
+                  <strong style={{ color: "#ed8936" }}>
+                    {t("orders.productDetails.remainder")}:
+                  </strong>{" "}
+                  {productDetailsData.remainderQuantity}{" "}
+                  {productDetailsData.remainderUnit}
+                </div>
+              )}
             </div>
           </div>
         )}

@@ -33,6 +33,7 @@ async function fetchOrders() {
       unit: item.unit,
       unit_price: item.unit_price != null ? Number(item.unit_price) : null,
       line_total: item.line_total != null ? Number(item.line_total) : null,
+      created_at: item.created_at,
     });
   }
 
@@ -70,11 +71,25 @@ async function fetchOrderById(orderId) {
       unit: item.unit,
       unit_price: item.unit_price != null ? Number(item.unit_price) : null,
       line_total: item.line_total != null ? Number(item.line_total) : null,
+      created_at: item.created_at,
     })),
   };
 }
 
 async function saveOrderItems(orderId, items) {
+  // Fetch existing items to preserve their created_at timestamps
+  const { data: existingItems, error: fetchError } = await supabase
+    .from("order_items")
+    .select("product_id, created_at")
+    .eq("order_id", orderId);
+  if (fetchError) throw fetchError;
+
+  // Build a map of product_id -> created_at for existing items
+  const existingCreatedAt = new Map();
+  (existingItems || []).forEach((item) => {
+    existingCreatedAt.set(item.product_id, item.created_at);
+  });
+
   // Delete existing items
   const { error: deleteError } = await supabase
     .from("order_items")
@@ -82,18 +97,26 @@ async function saveOrderItems(orderId, items) {
     .eq("order_id", orderId);
   if (deleteError) throw deleteError;
 
-  // Insert new items
+  // Insert new items, preserving created_at for existing products
   if (items.length > 0) {
-    const rows = items.map((item, index) => ({
-      order_id: orderId,
-      product_id: item.product_id,
-      product_name: item.product_name,
-      quantity: item.quantity,
-      unit: item.unit,
-      unit_price: item.unit_price,
-      line_total: item.line_total,
-      sort_order: index,
-    }));
+    const rows = items.map((item, index) => {
+      const row = {
+        order_id: orderId,
+        product_id: item.product_id,
+        product_name: item.product_name,
+        quantity: item.quantity,
+        unit: item.unit,
+        unit_price: item.unit_price,
+        line_total: item.line_total,
+        sort_order: index,
+      };
+      // Preserve original created_at if item already existed
+      const originalCreatedAt = existingCreatedAt.get(item.product_id);
+      if (originalCreatedAt) {
+        row.created_at = originalCreatedAt;
+      }
+      return row;
+    });
 
     const { error: insertError } = await supabase
       .from("order_items")

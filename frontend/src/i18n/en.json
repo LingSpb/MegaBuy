@@ -110,7 +110,10 @@
       "title": "Product Details",
       "unitPrice": "Unit Price",
       "cartonPrice": "Carton Price",
-      "orderedBy": "Ordered By"
+      "orderedBy": "Ordered By",
+      "protected": "Full carton",
+      "cutCandidate": "Cut candidate",
+      "remainder": "Remainder"
     },
     "noProducts": "No products",
     "discountProducts": "Discount Products",

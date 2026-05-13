@@ -110,7 +110,10 @@
       "title": "Chi tiết sản phẩm",
       "unitPrice": "Giá đơn vị",
       "cartonPrice": "Giá thùng",
-      "orderedBy": "Người đặt"
+      "orderedBy": "Người đặt",
+      "protected": "Đủ thùng",
+      "cutCandidate": "Có thể cắt",
+      "remainder": "Dư"
     },
     "noProducts": "Không có sản phẩm",
     "discountProducts": "Sản phẩm giảm giá",
